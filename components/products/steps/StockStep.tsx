@@ -68,7 +68,7 @@ export function StockStep({
   } = useQuery({
     queryKey: ["stock", sellableType, sellableId],
     queryFn: () => stockService.getStock(sellableType, sellableId!),
-    enabled: !!sellableId && productType !== "VARIANT",
+    enabled: !!sellableId && productType === "SIMPLE" && !variantCombinationId, // Sadece basit ürünler için
     retry: false, // 404 hatası için retry yapma
   })
 
@@ -79,10 +79,13 @@ export function StockStep({
     if (stock) {
       setAvailableQuantity(stock.availableQuantity || 0)
       setLowStockThreshold(stock.lowStockThreshold ?? null)
-    } else if (stockError && (stockError as any)?.response?.status === 404) {
-      // Stock yoksa, state'leri sıfırla (backend updateStock çağrısında otomatik oluşturacak)
-      setAvailableQuantity(0)
-      setLowStockThreshold(null)
+    } else if (stockError) {
+      const errorStatus = (stockError as any)?.response?.status
+      if (errorStatus === 404) {
+        // Stock yoksa, state'leri sıfırla (backend updateStock çağrısında otomatik oluşturacak)
+        setAvailableQuantity(0)
+        setLowStockThreshold(null)
+      }
     }
   }, [stock, stockError])
 
@@ -95,8 +98,12 @@ export function StockStep({
 
   // Stock güncelleme mutation (stock yoksa otomatik oluşturur)
   const updateStockMutation = useMutation({
-    mutationFn: (data: UpdateStockDto) =>
-      stockService.updateStock(sellableType, sellableId!, data),
+    mutationFn: (data: UpdateStockDto) => {
+      if (!sellableId) {
+        throw new Error("Sellable ID is required")
+      }
+      return stockService.updateStock(sellableType, sellableId, data)
+    },
     onSuccess: (updatedStock) => {
       // Cache'i direkt güncelle
       queryClient.setQueryData(
@@ -108,15 +115,21 @@ export function StockStep({
       setLowStockThreshold(updatedStock.lowStockThreshold ?? null)
       // Diğer query'leri invalidate et
       queryClient.invalidateQueries({ queryKey: ["stock"] })
+      queryClient.invalidateQueries({ queryKey: ["product", productId] })
       if (onStockSaved) {
         onStockSaved()
       }
+      toast({
+        title: "Başarılı",
+        description: "Stok bilgisi güncellendi.",
+      })
     },
     onError: (error: any) => {
+      console.error("[StockStep] Stock update error:", error)
       toast({
         title: "Hata",
         description:
-          error.response?.data?.message || "Stok güncellenirken bir hata oluştu.",
+          error.response?.data?.message || error.message || "Stok güncellenirken bir hata oluştu.",
         variant: "destructive",
       })
     },
@@ -155,6 +168,9 @@ export function StockStep({
     // Varyasyonlu ürünlerde stok düzenlenemez
     if (productType === "VARIANT" && !variantCombinationId) return
     
+    // Sadece basit ürünler için çalış
+    if (productType !== "SIMPLE") return
+    
     if (!sellableId || isLoadingStock || updateStockMutation.isPending) return
 
     // Stock varsa, değerler değişmediyse kaydetme
@@ -184,7 +200,7 @@ export function StockStep({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableQuantity, lowStockThreshold, sellableId, stock, productType])
+  }, [availableQuantity, lowStockThreshold, sellableId, stock, productType, isLoadingStock])
 
   // SKU değişikliklerini otomatik kaydet (debounce ile)
   useEffect(() => {

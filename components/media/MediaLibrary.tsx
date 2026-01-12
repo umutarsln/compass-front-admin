@@ -467,6 +467,12 @@ export function MediaLibrary() {
           </div>
           <FolderGrid
             folders={folders}
+            currentFolderId={currentFolderId}
+            onFolderChange={(folderId) => {
+              if (!isSelectionMode) {
+                setCurrentFolderId(folderId)
+              }
+            }}
             onDoubleClick={isSelectionMode ? undefined : handleFolderDoubleClick}
             onEdit={(folder) => {
               if (!isSelectionMode) {

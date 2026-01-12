@@ -418,7 +418,15 @@ export function ProductForm({ product }: ProductFormProps) {
                         data: {
                             basePrice: formData.basePrice,
                             isOnSale: formData.isOnSale,
-                            discountPercent: formData.isOnSale ? formData.discountPercent : null,
+                            // isOnSale true ise ve discountPercent geçerli bir sayı ise gönder
+                            ...(formData.isOnSale &&
+                                formData.discountPercent !== null &&
+                                formData.discountPercent !== undefined &&
+                                !isNaN(Number(formData.discountPercent)) &&
+                                Number(formData.discountPercent) >= 0 &&
+                                Number(formData.discountPercent) <= 100
+                                ? { discountPercent: Number(formData.discountPercent) }
+                                : {}),
                         },
                     })
                 }
@@ -474,7 +482,15 @@ export function ProductForm({ product }: ProductFormProps) {
             isActive: formData.isActive,
             isFeatured: formData.isFeatured,
             isOnSale: formData.isOnSale,
-            discountPercent: formData.isOnSale ? formData.discountPercent : null,
+            // isOnSale true ise ve discountPercent geçerli bir sayı ise gönder
+            ...(formData.isOnSale &&
+                formData.discountPercent !== null &&
+                formData.discountPercent !== undefined &&
+                !isNaN(Number(formData.discountPercent)) &&
+                Number(formData.discountPercent) >= 0 &&
+                Number(formData.discountPercent) <= 100
+                ? { discountPercent: Number(formData.discountPercent) }
+                : {}),
             seoTitle: formData.seoTitle || undefined,
             seoDescription: formData.seoDescription || undefined,
             seoKeywords: formData.seoKeywords
@@ -506,7 +522,15 @@ export function ProductForm({ product }: ProductFormProps) {
                     isActive: data.isActive,
                     isFeatured: data.isFeatured,
                     isOnSale: data.isOnSale,
-                    discountPercent: data.isOnSale ? data.discountPercent : null,
+                    // isOnSale true ise ve discountPercent geçerli bir sayı ise gönder
+                    ...(data.isOnSale &&
+                        data.discountPercent !== null &&
+                        data.discountPercent !== undefined &&
+                        !isNaN(Number(data.discountPercent)) &&
+                        Number(data.discountPercent) >= 0 &&
+                        Number(data.discountPercent) <= 100
+                        ? { discountPercent: Number(data.discountPercent) }
+                        : {}),
                     seoTitle: data.seoTitle || undefined,
                     seoDescription: data.seoDescription || undefined,
                     seoKeywords: data.seoKeywords

@@ -38,6 +38,11 @@ const navItems: NavItem[] = [
     path: "/panel/products",
   },
   {
+    label: "Store",
+    icon: Store,
+    path: "/panel/store",
+  },
+  {
     label: "Customers",
     icon: Users,
     path: "/panel/customers",

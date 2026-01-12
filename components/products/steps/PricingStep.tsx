@@ -95,8 +95,18 @@ export function PricingStep({
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
-                      const value = e.target.value === "" ? null : parseFloat(e.target.value) || 0
-                      field.onChange(value)
+                      if (e.target.value === "") {
+                        field.onChange(undefined)
+                      } else {
+                        const numValue = parseFloat(e.target.value)
+                        // Geçerli bir sayı ise (NaN değilse ve 0-100 arasındaysa)
+                        if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                          field.onChange(numValue)
+                        } else {
+                          // Geçersiz değer ise undefined set et
+                          field.onChange(undefined)
+                        }
+                      }
                     }}
                     placeholder="0.00"
                     className="mt-1"

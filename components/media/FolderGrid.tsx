@@ -21,6 +21,8 @@ interface FolderGridProps {
 export function FolderGrid({
   folders,
   onDoubleClick,
+  currentFolderId,
+  onFolderChange,
   onEdit,
   onDelete,
   onMove,
