@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { accessTokenCookie, refreshTokenCookie } from "./cookies"
+import api from "./api"
 
 export interface AuthUser {
   id: string
@@ -8,7 +9,7 @@ export interface AuthUser {
   firstname: string
   lastname: string
   phone: string
-  role?: "USER" | "ADMIN"
+  roles: string[]
   createdAt?: string
   updatedAt?: string
 }
@@ -20,6 +21,7 @@ interface AuthState {
   setAuth: (tokens: { accessToken: string; refreshToken: string; user?: AuthUser }) => void
   clearAuth: () => void
   initializeFromStorage: () => void
+  fetchUserData: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -57,12 +59,45 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           const accessToken = accessTokenCookie.get()
           const refreshToken = refreshTokenCookie.get()
-          
-          if (accessToken && refreshToken) {
+
+          // Eğer cookie'lerde token varsa ama store'da yoksa, cookie'lerden yükle
+          const currentState = get()
+          if (accessToken && refreshToken && (!currentState.accessToken || !currentState.refreshToken)) {
             set({
               accessToken,
               refreshToken,
             })
+          }
+        }
+      },
+      fetchUserData: async () => {
+        // User bilgisini backend'den al
+        const currentState = get()
+        if (currentState.accessToken && !currentState.user) {
+          try {
+            const response = await api.get('/users/me')
+            const userData = response.data
+
+            console.log("userData:", userData);
+
+            set({
+              user: {
+                id: userData.id,
+                email: userData.email,
+                firstname: userData.firstname,
+                lastname: userData.lastname,
+                phone: userData.phone,
+                roles: userData.roles || [],
+                createdAt: userData.createdAt,
+                updatedAt: userData.updatedAt,
+              },
+            })
+          } catch (error: any) {
+            console.error('Failed to fetch user data:', error)
+            // Token geçersizse temizle
+            if (error.response?.status === 401) {
+              get().clearAuth()
+            }
           }
         }
       },

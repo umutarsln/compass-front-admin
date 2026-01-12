@@ -6,12 +6,14 @@ import { authService, LoginDto } from "@/services/auth.service"
 import { useAuthStore } from "@/lib/store"
 import { accessTokenCookie, refreshTokenCookie } from "@/lib/cookies"
 import { useToast } from "@/components/ui/use-toast"
+import { useEffect } from "react"
 
 export function useAuth() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { accessToken, refreshToken, user, setAuth, clearAuth } = useAuthStore()
+
 
   // Login mutation
   const loginMutation = useMutation({
@@ -21,10 +23,20 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       // Zustand store'a kaydet (cookie'ler otomatik set edilir)
+      // Backend'den gelen user'ı roles array'i ile birlikte kaydet
+      const userData = data.user
+        ? {
+          ...data.user,
+          roles: (data.user as any).roles || [],
+        }
+        : undefined
+
+      console.log("userData:", userData);
+
       setAuth({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        user: data.user || undefined,
+        user: userData,
       })
 
       // Başarı mesajı göster
@@ -34,8 +46,8 @@ export function useAuth() {
         description: "Yönetim paneline yönlendiriliyorsunuz...",
       })
 
-      // Dashboard'a yönlendir
-      router.push("/dashboard")
+      // Panel'e yönlendir
+      router.push("/panel")
     },
     onError: (error: any) => {
       // Sadece 500+ server hatalarını logla
@@ -94,9 +106,10 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       // Zustand store'u güncelle (cookie'ler otomatik set edilir)
+      // refreshToken mutationFn'de zaten null kontrolü yapıldı, bu noktada null olamaz
       setAuth({
         accessToken: data.accessToken,
-        refreshToken: data.refreshToken || refreshToken,
+        refreshToken: data.refreshToken || refreshToken!,
         user: user || undefined,
       })
     },
@@ -125,7 +138,7 @@ export function useAuth() {
   const isAuthenticated = !!accessToken && !!user
 
   // Kullanıcı admin mi?
-  const isAdmin = user?.role === "ADMIN"
+  const isAdmin = user?.roles?.includes("ADMIN") ?? false
 
   return {
     // State
