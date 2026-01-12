@@ -22,16 +22,7 @@ export interface LogoutDto {
   refreshToken: string
 }
 
-export interface User {
-  id: string
-  firstname: string
-  lastname: string
-  email: string
-  phone: string
-  roles: string[]
-  createdAt: string
-  updatedAt: string
-}
+import { User } from "./user.service"
 
 export interface AuthResponse {
   accessToken: string

@@ -47,7 +47,7 @@ export function useAuth() {
       })
 
       // Panel'e yönlendir
-      router.push("/panel")
+      router.push("/panel/dashboard")
     },
     onError: (error: any) => {
       // Sadece 500+ server hatalarını logla

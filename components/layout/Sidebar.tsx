@@ -11,6 +11,8 @@ import {
   Settings,
   Store,
   LogOut,
+  Shield,
+  Image,
 } from "lucide-react"
 
 interface NavItem {
@@ -23,7 +25,7 @@ const navItems: NavItem[] = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
-    path: "/panel",
+    path: "/panel/dashboard",
   },
   {
     label: "Orders",
@@ -39,6 +41,16 @@ const navItems: NavItem[] = [
     label: "Customers",
     icon: Users,
     path: "/panel/customers",
+  },
+  {
+    label: "Admins",
+    icon: Shield,
+    path: "/panel/admins",
+  },
+  {
+    label: "Media",
+    icon: Image,
+    path: "/panel/media",
   },
   {
     label: "Settings",
@@ -75,7 +87,7 @@ export function Sidebar() {
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.path || pathname.startsWith(item.path + "/")
-              
+
               return (
                 <button
                   key={item.path}

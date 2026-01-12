@@ -15,15 +15,16 @@ export function Header({ title }: HeaderProps) {
   // Pathname'e göre başlık belirle
   const getPageTitle = () => {
     if (title) return title
-    
+
     const pathMap: Record<string, string> = {
-      "/panel": "Overview",
+      "/panel/dashboard": "Overview",
       "/panel/orders": "Orders",
       "/panel/products": "Products",
       "/panel/customers": "Customers",
+      "/panel/admins": "Admins",
       "/panel/settings": "Settings",
     }
-    
+
     return pathMap[pathname] || "Dashboard"
   }
 
