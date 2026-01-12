@@ -1,4 +1,5 @@
 import axios from "axios"
+import { accessTokenCookie, refreshTokenCookie } from "./cookies"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 
@@ -13,7 +14,7 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("accessToken")
+      const token = accessTokenCookie.get()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -30,13 +31,14 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+    const status = error.response?.status
 
     // 401 hatası ve token yenileme denenmemişse
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
       try {
-        const refreshToken = localStorage.getItem("refreshToken")
+        const refreshToken = refreshTokenCookie.get()
         if (refreshToken) {
           const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
             refreshToken,
@@ -44,9 +46,9 @@ api.interceptors.response.use(
 
           const { accessToken, refreshToken: newRefreshToken } = response.data
 
-          localStorage.setItem("accessToken", accessToken)
+          accessTokenCookie.set(accessToken)
           if (newRefreshToken) {
-            localStorage.setItem("refreshToken", newRefreshToken)
+            refreshTokenCookie.set(newRefreshToken)
           }
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`
@@ -54,11 +56,21 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         // Refresh token geçersizse logout
-        localStorage.removeItem("accessToken")
-        localStorage.removeItem("refreshToken")
+        accessTokenCookie.remove()
+        refreshTokenCookie.remove()
         window.location.href = "/login"
         return Promise.reject(refreshError)
       }
+    }
+
+    // Sadece 500+ server hatalarını console'a yazdır
+    // 4xx client hatalarını (401, 403, 404 vb.) sessizce handle et
+    if (status && status >= 500) {
+      console.error("Server Error:", {
+        status,
+        message: error.response?.data?.message || error.message,
+        url: originalRequest?.url,
+      })
     }
 
     return Promise.reject(error)

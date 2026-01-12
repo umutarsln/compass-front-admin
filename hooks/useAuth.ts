@@ -4,10 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { authService, LoginDto } from "@/services/auth.service"
 import { useAuthStore } from "@/lib/store"
+import { accessTokenCookie, refreshTokenCookie } from "@/lib/cookies"
+import { useToast } from "@/components/ui/use-toast"
 
 export function useAuth() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const { accessToken, refreshToken, user, setAuth, clearAuth } = useAuthStore()
 
   // Login mutation
@@ -17,24 +20,34 @@ export function useAuth() {
       return response
     },
     onSuccess: (data) => {
-      // Token'ları localStorage'a kaydet
-      if (typeof window !== "undefined") {
-        localStorage.setItem("accessToken", data.accessToken)
-        localStorage.setItem("refreshToken", data.refreshToken)
-      }
-      
-      // Zustand store'a kaydet
+      // Zustand store'a kaydet (cookie'ler otomatik set edilir)
       setAuth({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
         user: data.user || undefined,
       })
 
+      // Başarı mesajı göster
+      toast({
+        variant: "success",
+        title: "Giriş Başarılı",
+        description: "Yönetim paneline yönlendiriliyorsunuz...",
+      })
+
       // Dashboard'a yönlendir
       router.push("/dashboard")
     },
     onError: (error: any) => {
-      console.error("Login error:", error)
+      // Sadece 500+ server hatalarını logla
+      const status = error.response?.status
+      if (status && status >= 500) {
+        console.error("Login server error:", error)
+      }
+      // 4xx hatalarını (401, 403 vb.) sessizce handle et, throw etme
+      if (status && status < 500) {
+        // Client hatası, sessizce handle et
+        return
+      }
       throw error
     },
   })
@@ -52,17 +65,18 @@ export function useAuth() {
       }
     },
     onSuccess: () => {
-      // LocalStorage'dan token'ları temizle
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("accessToken")
-        localStorage.removeItem("refreshToken")
-      }
-
-      // Zustand store'u temizle
+      // Zustand store'u temizle (cookie'ler otomatik temizlenir)
       clearAuth()
 
       // Query cache'i temizle
       queryClient.clear()
+
+      // Başarı mesajı göster
+      toast({
+        variant: "success",
+        title: "Çıkış Yapıldı",
+        description: "Güvenli bir şekilde çıkış yaptınız.",
+      })
 
       // Login sayfasına yönlendir
       router.push("/login")
@@ -79,15 +93,7 @@ export function useAuth() {
       return response
     },
     onSuccess: (data) => {
-      // Yeni token'ları localStorage'a kaydet
-      if (typeof window !== "undefined") {
-        localStorage.setItem("accessToken", data.accessToken)
-        if (data.refreshToken) {
-          localStorage.setItem("refreshToken", data.refreshToken)
-        }
-      }
-
-      // Zustand store'u güncelle
+      // Zustand store'u güncelle (cookie'ler otomatik set edilir)
       setAuth({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken || refreshToken,

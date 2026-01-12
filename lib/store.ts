@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { accessTokenCookie, refreshTokenCookie } from "./cookies"
 
 export interface AuthUser {
   id: string
@@ -28,10 +29,10 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       user: null,
       setAuth: (tokens) => {
-        // LocalStorage'a da kaydet (axios interceptor için)
+        // Cookie'lere kaydet
         if (typeof window !== "undefined") {
-          localStorage.setItem("accessToken", tokens.accessToken)
-          localStorage.setItem("refreshToken", tokens.refreshToken)
+          accessTokenCookie.set(tokens.accessToken)
+          refreshTokenCookie.set(tokens.refreshToken)
         }
         set({
           accessToken: tokens.accessToken,
@@ -40,10 +41,10 @@ export const useAuthStore = create<AuthState>()(
         })
       },
       clearAuth: () => {
-        // LocalStorage'dan da temizle
+        // Cookie'lerden temizle
         if (typeof window !== "undefined") {
-          localStorage.removeItem("accessToken")
-          localStorage.removeItem("refreshToken")
+          accessTokenCookie.remove()
+          refreshTokenCookie.remove()
         }
         set({
           accessToken: null,
@@ -52,10 +53,10 @@ export const useAuthStore = create<AuthState>()(
         })
       },
       initializeFromStorage: () => {
-        // Sayfa yüklendiğinde localStorage'dan token'ları yükle
+        // Sayfa yüklendiğinde cookie'lerden token'ları yükle
         if (typeof window !== "undefined") {
-          const accessToken = localStorage.getItem("accessToken")
-          const refreshToken = localStorage.getItem("refreshToken")
+          const accessToken = accessTokenCookie.get()
+          const refreshToken = refreshTokenCookie.get()
           
           if (accessToken && refreshToken) {
             set({
