@@ -34,8 +34,10 @@ export function FolderGrid({
     // Sadece seçim modunda tek tıklama ile seçim yap
     if (isSelectionMode && onToggleSelection) {
       onToggleSelection(folder.id)
+    } else if (onFolderChange) {
+      // Normal modda tek tıklama ile klasöre gir
+      onFolderChange(folder.id)
     }
-    // Normal modda tek tıklama ile hiçbir şey yapma
   }
 
   const isSelected = (folderId: string) => selectedIds.has(folderId)

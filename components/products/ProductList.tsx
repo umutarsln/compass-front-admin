@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { productService, Product, ProductType, GetProductsParams } from "@/services/product.service"
+import { useToast } from "@/components/ui/use-toast"
 import { categoryService, Category } from "@/services/category.service"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus, Edit, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -22,12 +23,15 @@ const ITEMS_PER_PAGE = 10
 
 export function ProductList() {
   const router = useRouter()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
   const [currentPage, setCurrentPage] = useState(1)
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null)
 
   // Kategorileri getir
   const { data: categories } = useQuery({
@@ -47,46 +51,81 @@ export function ProductList() {
     queryFn: () => productService.getAll(queryParams),
   })
 
+  // Ürün silme mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => productService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] })
+      toast({
+        title: "Başarılı",
+        description: "Ürün başarıyla silindi.",
+      })
+      setDeletingProductId(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Hata",
+        description: error.response?.data?.message || "Ürün silinirken bir hata oluştu.",
+        variant: "destructive",
+      })
+      setDeletingProductId(null)
+    },
+  })
+
+  // Ürün silme handler
+  const handleDelete = async (product: Product) => {
+    if (!confirm(`"${product.name}" ürününü silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
+      return
+    }
+    setDeletingProductId(product.id)
+    deleteMutation.mutate(product.id)
+  }
+
+  // Düzenle butonu handler
+  const handleEdit = (product: Product) => {
+    router.push(`/panel/products/${product.slug}`)
+  }
+
   // Client-side sorting
   const sortedProducts = products
     ? [...products].sort((a, b) => {
-        if (!sortField) return 0
+      if (!sortField) return 0
 
-        let aValue: string | number | boolean = ""
-        let bValue: string | number | boolean = ""
+      let aValue: string | number | boolean = ""
+      let bValue: string | number | boolean = ""
 
-        switch (sortField) {
-          case "name":
-            aValue = a.name.toLowerCase()
-            bValue = b.name.toLowerCase()
-            break
-          case "basePrice":
-            aValue = a.basePrice
-            bValue = b.basePrice
-            break
-          case "createdAt":
-            aValue = new Date(a.createdAt).getTime()
-            bValue = new Date(b.createdAt).getTime()
-            break
-          case "isActive":
-            aValue = a.isActive
-            bValue = b.isActive
-            break
-          case "isFeatured":
-            aValue = a.isFeatured
-            bValue = b.isFeatured
-            break
-        }
+      switch (sortField) {
+        case "name":
+          aValue = a.name.toLowerCase()
+          bValue = b.name.toLowerCase()
+          break
+        case "basePrice":
+          aValue = Number(a.basePrice)
+          bValue = Number(b.basePrice)
+          break
+        case "createdAt":
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+          break
+        case "isActive":
+          aValue = a.isActive
+          bValue = b.isActive
+          break
+        case "isFeatured":
+          aValue = a.isFeatured
+          bValue = b.isFeatured
+          break
+      }
 
-        if (typeof aValue === "boolean" && typeof bValue === "boolean") {
-          if (aValue === bValue) return 0
-          return sortOrder === "asc" ? (aValue ? -1 : 1) : aValue ? 1 : -1
-        }
+      if (typeof aValue === "boolean" && typeof bValue === "boolean") {
+        if (aValue === bValue) return 0
+        return sortOrder === "asc" ? (aValue ? -1 : 1) : aValue ? 1 : -1
+      }
 
-        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
-        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
-        return 0
-      })
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
+      return 0
+    })
     : []
 
   // Client-side search
@@ -150,10 +189,12 @@ export function ProductList() {
   }
 
   const calculateFinalPrice = (product: Product) => {
+    const basePrice = Number(product.basePrice)
     if (product.isOnSale && product.discountPercent) {
-      return product.basePrice * (1 - product.discountPercent / 100)
+      const discountPercent = Number(product.discountPercent)
+      return basePrice * (1 - discountPercent / 100)
     }
-    return product.basePrice
+    return basePrice
   }
 
   const hasActiveFilters = typeFilter !== "all" || categoryFilter !== "all" || searchQuery
@@ -214,7 +255,7 @@ export function ProductList() {
             <Filter className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Filtreler:</span>
           </div>
-          
+
           {/* Type Filter */}
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProductType | "all")}>
             <SelectTrigger className="w-[150px]">
@@ -224,7 +265,8 @@ export function ProductList() {
               <SelectItem value="all">Tüm Tipler</SelectItem>
               <SelectItem value="SIMPLE">Basit</SelectItem>
               <SelectItem value="VARIANT">Varyant</SelectItem>
-              <SelectItem value="BUNDLE">Paket</SelectItem>
+              {/* BUNDLE seçeneği şimdilik kaldırıldı */}
+              {/* <SelectItem value="BUNDLE">Paket</SelectItem> */}
             </SelectContent>
           </Select>
 
@@ -344,15 +386,15 @@ export function ProductList() {
                             ₺{calculateFinalPrice(product).toFixed(2)}
                           </div>
                           <div className="text-xs text-muted-foreground line-through">
-                            ₺{product.basePrice.toFixed(2)}
+                            ₺{Number(product.basePrice).toFixed(2)}
                           </div>
                           <div className="text-xs text-green-600 dark:text-green-400">
-                            %{product.discountPercent.toFixed(1)} indirim
+                            %{Number(product.discountPercent).toFixed(1)} indirim
                           </div>
                         </>
                       ) : (
                         <div className="text-sm font-medium text-foreground">
-                          ₺{product.basePrice.toFixed(2)}
+                          ₺{Number(product.basePrice).toFixed(2)}
                         </div>
                       )}
                     </div>
@@ -406,11 +448,10 @@ export function ProductList() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          product.isActive
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${product.isActive
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          }`}
                       >
                         {product.isActive ? "Aktif" : "Pasif"}
                       </span>
@@ -437,10 +478,27 @@ export function ProductList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(product)}
+                        disabled={deletingProductId === product.id}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
                         Düzenle
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        onClick={() => handleDelete(product)}
+                        disabled={deletingProductId === product.id || deleteMutation.isPending}
+                      >
+                        {deletingProductId === product.id ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-1" />
+                        )}
                         Sil
                       </Button>
                     </div>
@@ -479,7 +537,7 @@ export function ProductList() {
               "Ürün bulunamadı"
             )}
           </div>
-          
+
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <Button
@@ -490,7 +548,7 @@ export function ProductList() {
               >
                 Önceki
               </Button>
-              
+
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                   if (
@@ -519,7 +577,7 @@ export function ProductList() {
                   return null
                 })}
               </div>
-              
+
               <Button
                 variant="outline"
                 size="sm"

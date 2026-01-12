@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -77,13 +77,14 @@ export function TagForm({ open, onOpenChange, tag }: TagFormProps) {
   // Tag oluşturma mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateTagDto) => tagService.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tags"] })
+    onSuccess: async () => {
+      // Query'leri invalidate et (refetch tetiklenecek)
+      await queryClient.invalidateQueries({ queryKey: ["tags"] })
       toast({
         title: "Başarılı",
-        description: "Tag başarıyla oluşturuldu.",
+        description: "Tag başarıyla oluşturuldu. Listede görünecektir.",
       })
-      onOpenChange(false)
+      // Form'u resetle ama dialog'u açık tut (kullanıcı kapatabilir)
       reset()
     },
     onError: (error: any) => {
@@ -99,12 +100,14 @@ export function TagForm({ open, onOpenChange, tag }: TagFormProps) {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateTagDto }) =>
       tagService.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tags"] })
+    onSuccess: async () => {
+      // Query'leri invalidate et (refetch tetiklenecek)
+      await queryClient.invalidateQueries({ queryKey: ["tags"] })
       toast({
         title: "Başarılı",
         description: "Tag başarıyla güncellendi.",
       })
+      // Dialog'u kapat
       onOpenChange(false)
       reset()
     },
@@ -117,7 +120,13 @@ export function TagForm({ open, onOpenChange, tag }: TagFormProps) {
     },
   })
 
-  const onSubmit = async (data: TagFormValues) => {
+  const onSubmit = async (data: TagFormValues, e?: React.BaseSyntheticEvent) => {
+    // Event propagation'ı durdur - parent form'u tetiklemesin
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     setIsSubmitting(true)
     try {
       const submitData: CreateTagDto | UpdateTagDto = {
@@ -148,7 +157,14 @@ export function TagForm({ open, onOpenChange, tag }: TagFormProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            handleSubmit(onSubmit)(e)
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-4">
             <div>
               <Label htmlFor="name">Tag Adı *</Label>

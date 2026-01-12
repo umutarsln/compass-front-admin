@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { categoryService, Category, CreateCategoryDto, UpdateCategoryDto } from "@/services/category.service"
+import { categoryService, Category, CategoryTree, CreateCategoryDto, UpdateCategoryDto } from "@/services/category.service"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 
@@ -46,9 +46,10 @@ interface CategoryFormProps {
   onOpenChange: (open: boolean) => void
   category?: Category | null
   categories?: Category[]
+  categoryTree?: CategoryTree[]
 }
 
-export function CategoryForm({ open, onOpenChange, category, categories = [] }: CategoryFormProps) {
+export function CategoryForm({ open, onOpenChange, category, categories = [], categoryTree = [] }: CategoryFormProps) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -106,13 +107,17 @@ export function CategoryForm({ open, onOpenChange, category, categories = [] }: 
   // Kategori oluşturma mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateCategoryDto) => categoryService.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] })
+    onSuccess: async () => {
+      // Query'leri invalidate et (refetch tetiklenecek)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["categories", "tree"] }),
+      ])
       toast({
         title: "Başarılı",
-        description: "Kategori başarıyla oluşturuldu.",
+        description: "Kategori başarıyla oluşturuldu. Listede görünecektir.",
       })
-      onOpenChange(false)
+      // Form'u resetle ama dialog'u açık tut (kullanıcı kapatabilir)
       reset()
     },
     onError: (error: any) => {
@@ -128,12 +133,17 @@ export function CategoryForm({ open, onOpenChange, category, categories = [] }: 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateCategoryDto }) =>
       categoryService.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] })
+    onSuccess: async () => {
+      // Query'leri invalidate et (refetch tetiklenecek)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["categories", "tree"] }),
+      ])
       toast({
         title: "Başarılı",
         description: "Kategori başarıyla güncellendi.",
       })
+      // Dialog'u kapat
       onOpenChange(false)
       reset()
     },
@@ -146,7 +156,13 @@ export function CategoryForm({ open, onOpenChange, category, categories = [] }: 
     },
   })
 
-  const onSubmit = async (data: CategoryFormValues) => {
+  const onSubmit = async (data: CategoryFormValues, e?: React.BaseSyntheticEvent) => {
+    // Event propagation'ı durdur - parent form'u tetiklemesin
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     setIsSubmitting(true)
     try {
       const submitData: CreateCategoryDto | UpdateCategoryDto = {
@@ -174,55 +190,81 @@ export function CategoryForm({ open, onOpenChange, category, categories = [] }: 
     }
   }
 
-  // Kategorileri hiyerarşik yapıya çevir ve path oluştur
-  const buildCategoryPath = (cat: Category, allCats: Category[]): string => {
-    const path: string[] = [cat.name]
-    let currentId: string | null = cat.parentId
+  // Tree yapısından düz listeye çevir (hiyerarşik sırayla)
+  const flattenCategoryTree = (
+    tree: CategoryTree[],
+    level: number = 0,
+    excludeId?: string,
+    parentPath: string[] = []
+  ): Array<{ category: CategoryTree; level: number; path: string[] }> => {
+    const result: Array<{ category: CategoryTree; level: number; path: string[] }> = []
 
-    while (currentId) {
-      const parent = allCats.find((c) => c.id === currentId)
-      if (parent) {
-        path.unshift(parent.name)
-        currentId = parent.parentId
-      } else {
-        break
+    for (const node of tree) {
+      // Düzenlenen kategoriyi ve onun alt kategorilerini hariç tut
+      if (excludeId && node.id === excludeId) {
+        continue
+      }
+
+      const currentPath = [...parentPath, node.name]
+
+      result.push({
+        category: node,
+        level,
+        path: currentPath,
+      })
+
+      // Alt kategorileri ekle (recursive)
+      if (node.children && node.children.length > 0) {
+        const filteredChildren = node.children.filter(
+          (child) => !excludeId || child.id !== excludeId
+        )
+        result.push(...flattenCategoryTree(filteredChildren, level + 1, excludeId, currentPath))
       }
     }
 
-    return path.join(" > ")
+    return result
   }
 
-  // Kategorileri hiyerarşik olarak sırala (parent'lar önce, child'lar sonra)
-  const getCategoryDepth = (cat: Category, allCats: Category[]): number => {
-    let depth = 0
-    let currentId: string | null = cat.parentId
-
-    while (currentId) {
-      depth++
-      const parent = allCats.find((c) => c.id === currentId)
-      if (parent) {
-        currentId = parent.parentId
-      } else {
-        break
-      }
+  // Category'yi CategoryTree'ye çevir (fallback için)
+  const categoryToTree = (cat: Category): CategoryTree => {
+    return {
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      children: [],
     }
-
-    return depth
   }
 
-  // Parent kategorileri filtrele ve hiyerarşik sırala
-  const availableParents = categories
-    .filter((cat) => !category || (cat.id !== category.id && cat.parentId !== category.id))
-    .sort((a, b) => {
-      // Önce depth'e göre sırala (parent'lar önce)
-      const depthA = getCategoryDepth(a, categories)
-      const depthB = getCategoryDepth(b, categories)
-      if (depthA !== depthB) {
-        return depthA - depthB
-      }
-      // Aynı depth'te ise isme göre sırala
-      return a.name.localeCompare(b.name, "tr")
-    })
+  // Parent kategorileri tree yapısından al
+  const getAvailableParents = () => {
+    if (categoryTree.length > 0) {
+      // Tree yapısını kullan
+      return flattenCategoryTree(categoryTree, 0, category?.id)
+    } else {
+      // Fallback: Düz liste kullan (eski yöntem)
+      return categories
+        .filter((cat) => !category || (cat.id !== category.id && cat.parentId !== category.id))
+        .map((cat) => {
+          // Depth ve path hesapla
+          let depth = 0
+          const path: string[] = [cat.name]
+          let currentId: string | null = cat.parentId
+          while (currentId) {
+            depth++
+            const parent = categories.find((c) => c.id === currentId)
+            if (parent) {
+              path.unshift(parent.name)
+              currentId = parent.parentId
+            } else {
+              break
+            }
+          }
+          return { category: categoryToTree(cat), level: depth, path }
+        })
+    }
+  }
+
+  const availableParents = getAvailableParents()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -236,7 +278,14 @@ export function CategoryForm({ open, onOpenChange, category, categories = [] }: 
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            handleSubmit(onSubmit)(e)
+          }}
+          className="space-y-4"
+        >
           {/* Temel Bilgiler */}
           <div className="space-y-4">
             <div>
@@ -274,18 +323,23 @@ export function CategoryForm({ open, onOpenChange, category, categories = [] }: 
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
                   <SelectItem value="none">Yok (Ana Kategori)</SelectItem>
-                  {availableParents.map((cat) => {
-                    const depth = getCategoryDepth(cat, categories)
-                    const indent = "  ".repeat(depth)
-                    const prefix = depth > 0 ? "└─ " : ""
-                    const path = buildCategoryPath(cat, categories)
+                  {availableParents.map((item) => {
+                    const indent = "  ".repeat(item.level)
+                    const prefix = item.level > 0 ? "└─ " : ""
+                    const fullPath = item.path.join(" > ")
                     
                     return (
-                      <SelectItem key={cat.id} value={cat.id}>
+                      <SelectItem key={item.category.id} value={item.category.id}>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{indent}{prefix}{cat.name}</span>
-                          {depth > 0 && (
-                            <span className="text-xs text-muted-foreground">({path})</span>
+                          <span className="font-medium whitespace-pre">
+                            {indent}
+                            {prefix}
+                            {item.category.name}
+                          </span>
+                          {item.level > 0 && item.path.length > 1 && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              ({fullPath})
+                            </span>
                           )}
                         </div>
                       </SelectItem>

@@ -9,16 +9,7 @@ import { useRouter } from "next/navigation"
 import TurndownService from "turndown"
 import { marked } from "marked"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RichTextEditor } from "@/components/ui/rich-text-editor"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { Stepper, StepContent } from "@/components/ui/stepper"
 import {
     productService,
     Product,
@@ -29,8 +20,17 @@ import {
 import { categoryService, Category } from "@/services/category.service"
 import { tagService, Tag } from "@/services/tag.service"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, ArrowLeft } from "lucide-react"
-import { Textarea } from "../ui/textarea"
+import { Loader2, ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react"
+import { ProductTypeStep } from "./steps/ProductTypeStep"
+import { BasicInfoStep } from "./steps/BasicInfoStep"
+import { PricingStep } from "./steps/PricingStep"
+import { CategoriesTagsStep } from "./steps/CategoriesTagsStep"
+import { SEOStep } from "./steps/SEOStep"
+import { GalleryStep } from "./steps/GalleryStep"
+import { StockStep } from "./steps/StockStep"
+import { SummaryStep } from "./steps/SummaryStep"
+import { VariantsStep } from "./steps/VariantsStep"
+import { VariantCombinationsStep } from "./steps/VariantCombinationsStep"
 
 const productSchema = z.object({
     type: z.enum(["SIMPLE", "VARIANT", "BUNDLE"]),
@@ -67,11 +67,108 @@ interface ProductFormProps {
     product?: Product | null
 }
 
+// Tüm olası adımlar
+const ALL_STEPS = {
+    type: {
+        id: "type",
+        title: "Ürün Tipi",
+        description: "Ürün tipini seçin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
+    basic: {
+        id: "basic",
+        title: "Temel Bilgiler",
+        description: "Ürün bilgilerini girin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
+    variants: {
+        id: "variants",
+        title: "Varyasyon Ayarları",
+        description: "Varyasyon seçeneklerini ve değerlerini ayarlayın",
+        applicableTypes: ["VARIANT"] as ProductType[],
+    },
+    variantCombinations: {
+        id: "variantCombinations",
+        title: "Varyasyon Kombinasyonları",
+        description: "Varyasyon kombinasyonlarını oluşturun",
+        applicableTypes: ["VARIANT"] as ProductType[],
+    },
+    pricing: {
+        id: "pricing",
+        title: "Fiyatlandırma",
+        description: "Ürün fiyatlandırma bilgilerini girin",
+        applicableTypes: ["SIMPLE", "VARIANT"] as ProductType[],
+    },
+    categories: {
+        id: "categories",
+        title: "Kategoriler & Tag'ler",
+        description: "Kategorileri ve tag'leri seçin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
+    seo: {
+        id: "seo",
+        title: "SEO Ayarları",
+        description: "SEO bilgilerini girin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
+    gallery: {
+        id: "gallery",
+        title: "Resimler",
+        description: "Ürün resimlerini yükleyin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
+    stock: {
+        id: "stock",
+        title: "Stok Yönetimi",
+        description: "Stok bilgilerini ayarlayın",
+        applicableTypes: ["SIMPLE", "VARIANT"] as ProductType[],
+    },
+    summary: {
+        id: "summary",
+        title: "Özet",
+        description: "Ürün bilgilerini gözden geçirin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
+} as const
+
+// Ürün tipine göre adım sırası
+const getStepsForProductType = (productType: ProductType | undefined) => {
+    if (!productType) return []
+
+    const steps = Object.values(ALL_STEPS).filter((step) =>
+        step.applicableTypes.includes(productType)
+    )
+
+    // Adım sırasını belirle
+    const stepOrder: (keyof typeof ALL_STEPS)[] = [
+        "type",
+        "basic",
+        "variants",
+        "variantCombinations",
+        "pricing",
+        "categories",
+        "seo",
+        "gallery",
+        "stock",
+        "summary",
+    ]
+
+    return stepOrder
+        .filter((stepId) => {
+            const step = ALL_STEPS[stepId]
+            return step && step.applicableTypes.includes(productType)
+        })
+        .map((stepId) => ALL_STEPS[stepId])
+}
+
 export function ProductForm({ product }: ProductFormProps) {
     const { toast } = useToast()
     const queryClient = useQueryClient()
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [currentStep, setCurrentStep] = useState(0)
+    const [createdProductId, setCreatedProductId] = useState<string | null>(null)
+    const [isGalleryValid, setIsGalleryValid] = useState(false)
 
     // Turndown service for HTML to Markdown conversion
     const turndownService = new TurndownService({
@@ -88,6 +185,12 @@ export function ProductForm({ product }: ProductFormProps) {
         queryFn: () => categoryService.getAll(),
     })
 
+    // Hiyerarşik kategori tree'yi getir
+    const { data: categoryTree = [] } = useQuery({
+        queryKey: ["categories", "tree"],
+        queryFn: () => categoryService.getTree(),
+    })
+
     const { data: tags = [] } = useQuery({
         queryKey: ["tags"],
         queryFn: () => tagService.getAll(),
@@ -101,6 +204,7 @@ export function ProductForm({ product }: ProductFormProps) {
         reset,
         setValue,
         watch,
+        trigger,
     } = useForm<ProductFormValues>({
         resolver: zodResolver(productSchema),
         defaultValues: {
@@ -119,7 +223,20 @@ export function ProductForm({ product }: ProductFormProps) {
             categoryIds: [],
             tagIds: [],
         },
+        mode: "onChange",
     })
+
+    // Ürün tipine göre adımları al
+    const productType = watch("type") || product?.type
+    const STEPS = getStepsForProductType(productType)
+
+    // Ürün tipi değiştiğinde adımı sıfırla
+    useEffect(() => {
+        if (productType && !product) {
+            // Yeni ürün oluştururken tip değiştiğinde adımı sıfırla
+            setCurrentStep(0)
+        }
+    }, [productType, product])
 
     const isOnSale = watch("isOnSale")
     const categoryIds = watch("categoryIds")
@@ -150,6 +267,11 @@ export function ProductForm({ product }: ProductFormProps) {
                 categoryIds: product.categories?.map((c) => c.id) || [],
                 tagIds: product.tags?.map((t) => t.id) || [],
             })
+            setCreatedProductId(product.id)
+
+            // Not: Gallery durumu ProductGalleryManager tarafından yönetiliyor
+            // Burada sadece productId'yi set ediyoruz, gallery durumu
+            // ProductGalleryManager'ın onSaveStatusChange callback'i ile güncellenecek
         } else {
             setHtmlDescription("")
         }
@@ -158,13 +280,15 @@ export function ProductForm({ product }: ProductFormProps) {
     // Ürün oluşturma mutation
     const createMutation = useMutation({
         mutationFn: (data: CreateProductDto) => productService.create(data),
-        onSuccess: () => {
+        onSuccess: (createdProduct) => {
+            setCreatedProductId(createdProduct.id)
             queryClient.invalidateQueries({ queryKey: ["products"] })
             toast({
                 title: "Başarılı",
                 description: "Ürün başarıyla oluşturuldu.",
             })
-            router.push("/panel/products")
+            // Bir sonraki adıma geç (normal sıra)
+            setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
         },
         onError: (error: any) => {
             toast({
@@ -181,6 +305,7 @@ export function ProductForm({ product }: ProductFormProps) {
             productService.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["products"] })
+            queryClient.invalidateQueries({ queryKey: ["product", createdProductId || product?.id] })
             toast({
                 title: "Başarılı",
                 description: "Ürün başarıyla güncellendi.",
@@ -196,16 +321,182 @@ export function ProductForm({ product }: ProductFormProps) {
         },
     })
 
+    // Category ve tag güncelleme için özel mutation (redirect yapmaz)
+    const updateCategoriesTagsMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: UpdateProductDto }) =>
+            productService.update(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["products"] })
+            queryClient.invalidateQueries({ queryKey: ["product", createdProductId || product?.id] })
+        },
+        onError: (error: any) => {
+            toast({
+                title: "Hata",
+                description: error.response?.data?.message || "Kategori ve tag'ler güncellenirken bir hata oluştu.",
+                variant: "destructive",
+            })
+        },
+    })
+
+    // Adım validasyonu
+    const validateStep = async (step: number): Promise<boolean> => {
+        const stepData = STEPS[step]
+        if (!stepData) return true
+
+        switch (stepData.id) {
+            case "type":
+                return await trigger("type")
+            case "basic":
+                return await trigger(["name", "description"])
+            case "variants":
+                return true // Yakında eklenecek
+            case "variantCombinations":
+                return true // Yakında eklenecek
+            case "pricing":
+                return await trigger(["basePrice"])
+            case "categories":
+                return true // Opsiyonel
+            case "seo":
+                return true // Opsiyonel
+            case "gallery":
+                // Main image ve thumbnail image zorunlu
+                if (!isGalleryValid) {
+                    toast({
+                        title: "Uyarı",
+                        description: "Ana resim ve thumbnail resim zorunludur. Lütfen resimleri seçin.",
+                        variant: "destructive",
+                    })
+                    return false
+                }
+                return true
+            case "stock":
+                // Stok adımı için ürün ID'si olmalı
+                if (!createdProductId && !product?.id) {
+                    toast({
+                        title: "Uyarı",
+                        description: "Stok bilgilerini girebilmek için önce ürünü oluşturmanız gerekiyor.",
+                        variant: "destructive",
+                    })
+                    return false
+                }
+                return true // Opsiyonel
+            case "summary":
+                // Özet adımı için ürün ID'si olmalı
+                if (!createdProductId && !product?.id) {
+                    toast({
+                        title: "Uyarı",
+                        description: "Özet görüntülemek için önce ürünü oluşturmanız gerekiyor.",
+                        variant: "destructive",
+                    })
+                    return false
+                }
+                return true // Opsiyonel
+            default:
+                return true
+        }
+    }
+
+    // Sonraki adıma geç
+    const handleNext = async () => {
+        const isValid = await validateStep(currentStep)
+        if (isValid) {
+            const currentStepData = STEPS[currentStep]
+            if (!currentStepData) return
+
+            // Eğer temel bilgiler adımındaysak ve ürün henüz oluşturulmadıysa, önce ürünü oluştur
+            if (currentStepData.id === "basic" && !createdProductId && !product) {
+                await handleSaveProduct()
+                // handleSaveProduct içinde createMutation onSuccess'te zaten bir sonraki adıma geçiliyor
+            } else {
+                const formData = watch()
+                const productId = createdProductId || product?.id
+
+                // Fiyatlandırma adımından sonra, ürünü güncelle
+                if (currentStepData.id === "pricing" && productId) {
+                    await updateCategoriesTagsMutation.mutateAsync({
+                        id: productId,
+                        data: {
+                            basePrice: formData.basePrice,
+                            isOnSale: formData.isOnSale,
+                            discountPercent: formData.isOnSale ? formData.discountPercent : null,
+                        },
+                    })
+                }
+
+                // Category ve tag adımından sonra, ürünü güncelle
+                if (currentStepData.id === "categories" && productId) {
+                    await updateCategoriesTagsMutation.mutateAsync({
+                        id: productId,
+                        data: {
+                            categoryIds: formData.categoryIds.length > 0 ? formData.categoryIds : [],
+                            tagIds: formData.tagIds.length > 0 ? formData.tagIds : [],
+                        },
+                    })
+                }
+
+                // SEO adımından sonra, ürünü güncelle
+                if (currentStepData.id === "seo" && productId) {
+                    await updateCategoriesTagsMutation.mutateAsync({
+                        id: productId,
+                        data: {
+                            seoTitle: formData.seoTitle || undefined,
+                            seoDescription: formData.seoDescription || undefined,
+                            seoKeywords: formData.seoKeywords
+                                ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
+                                : undefined,
+                        },
+                    })
+                }
+
+                setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
+            }
+        }
+    }
+
+    // Önceki adıma dön
+    const handlePrevious = () => {
+        setCurrentStep((prev) => Math.max(prev - 1, 0))
+    }
+
+    // Ürünü kaydet (ara kayıt)
+    const handleSaveProduct = async () => {
+        const formData = watch()
+        const markdownDescription = htmlDescription
+            ? turndownService.turndown(htmlDescription)
+            : ""
+
+        const createData: CreateProductDto = {
+            type: formData.type,
+            name: formData.name,
+            description: markdownDescription || formData.description,
+            basePrice: formData.basePrice,
+            sku: formData.sku || undefined,
+            isActive: formData.isActive,
+            isFeatured: formData.isFeatured,
+            isOnSale: formData.isOnSale,
+            discountPercent: formData.isOnSale ? formData.discountPercent : null,
+            seoTitle: formData.seoTitle || undefined,
+            seoDescription: formData.seoDescription || undefined,
+            seoKeywords: formData.seoKeywords
+                ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
+                : undefined,
+            categoryIds: formData.categoryIds.length > 0 ? formData.categoryIds : undefined,
+            tagIds: formData.tagIds.length > 0 ? formData.tagIds : undefined,
+        }
+
+        await createMutation.mutateAsync(createData)
+    }
+
+    // Final submit
     const onSubmit = async (data: ProductFormValues) => {
         setIsSubmitting(true)
         try {
-            // HTML'i Markdown'a çevir
-            const markdownDescription = htmlDescription
-                ? turndownService.turndown(htmlDescription)
-                : ""
-
-            if (product) {
+            if (product || createdProductId) {
                 // Update mode
+                const markdownDescription = htmlDescription
+                    ? turndownService.turndown(htmlDescription)
+                    : ""
+
                 const updateData: UpdateProductDto = {
                     type: data.type,
                     name: data.name,
@@ -224,32 +515,10 @@ export function ProductForm({ product }: ProductFormProps) {
                     categoryIds: data.categoryIds.length > 0 ? data.categoryIds : undefined,
                     tagIds: data.tagIds.length > 0 ? data.tagIds : undefined,
                 }
-                await updateMutation.mutateAsync({ id: product.id, data: updateData })
-            } else {
-                // Create mode
-                const finalDescription: string = (markdownDescription || data.description || "").trim()
-                if (!finalDescription) {
-                    throw new Error("Ürün açıklaması gereklidir")
-                }
-                const createData: CreateProductDto = {
-                    type: data.type,
-                    name: data.name,
-                    description: finalDescription,
-                    basePrice: data.basePrice,
-                    sku: data.sku || undefined,
-                    isActive: data.isActive,
-                    isFeatured: data.isFeatured,
-                    isOnSale: data.isOnSale,
-                    discountPercent: data.isOnSale ? data.discountPercent : null,
-                    seoTitle: data.seoTitle || undefined,
-                    seoDescription: data.seoDescription || undefined,
-                    seoKeywords: data.seoKeywords
-                        ? data.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
-                        : undefined,
-                    categoryIds: data.categoryIds.length > 0 ? data.categoryIds : undefined,
-                    tagIds: data.tagIds.length > 0 ? data.tagIds : undefined,
-                }
-                await createMutation.mutateAsync(createData)
+                await updateMutation.mutateAsync({
+                    id: product?.id || createdProductId!,
+                    data: updateData,
+                })
             }
         } catch (error) {
             // Error handled in mutation
@@ -276,6 +545,99 @@ export function ProductForm({ product }: ProductFormProps) {
         }
     }
 
+    const renderStepContent = () => {
+        const currentStepData = STEPS[currentStep]
+        if (!currentStepData) return null
+
+        switch (currentStepData.id) {
+            case "type":
+                return (
+                    <ProductTypeStep
+                        control={control}
+                        errors={errors}
+                        productType={productType}
+                        isEditMode={!!product}
+                    />
+                )
+            case "basic":
+                return (
+                    <BasicInfoStep
+                        control={control}
+                        register={register}
+                        errors={errors}
+                        htmlDescription={htmlDescription}
+                        setHtmlDescription={setHtmlDescription}
+                    />
+                )
+            case "variants":
+                return (
+                    <VariantsStep productId={createdProductId || product?.id} />
+                )
+            case "variantCombinations":
+                return (
+                    <VariantCombinationsStep
+                        productId={createdProductId || product?.id}
+                        productType={productType}
+                    />
+                )
+            case "pricing":
+                return (
+                    <PricingStep
+                        control={control}
+                        register={register}
+                        errors={errors}
+                        isOnSale={isOnSale}
+                        productType={productType}
+                    />
+                )
+            case "categories":
+                return (
+                    <CategoriesTagsStep
+                        categories={categories}
+                        categoryTree={categoryTree}
+                        tags={tags}
+                        categoryIds={categoryIds || []}
+                        tagIds={tagIds || []}
+                        onToggleCategory={toggleCategory}
+                        onToggleTag={toggleTag}
+                    />
+                )
+            case "seo":
+                return <SEOStep register={register} />
+            case "gallery":
+                return (
+                    <GalleryStep
+                        productId={createdProductId || product?.id}
+                        productType={productType}
+                        variantCombinationId={undefined}
+                        onValidationChange={setIsGalleryValid}
+                    />
+                )
+            case "stock":
+                return (
+                    <StockStep
+                        productId={createdProductId || product?.id}
+                        productType={productType}
+                        variantCombinationId={undefined}
+                        onStockSaved={() => {
+                            // Stock kaydedildiğinde query'leri invalidate et
+                            queryClient.invalidateQueries({ queryKey: ["product", createdProductId || product?.id] })
+                            queryClient.invalidateQueries({ queryKey: ["stock"] })
+                        }}
+                    />
+                )
+            case "summary":
+                return (
+                    <SummaryStep
+                        productId={createdProductId || product?.id}
+                        productType={productType}
+                    />
+                )
+            default:
+                return null
+        }
+    }
+
     return (
         <div className="rounded-lg border border-border bg-card shadow-sm">
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
@@ -288,7 +650,7 @@ export function ProductForm({ product }: ProductFormProps) {
                         <p className="text-sm text-muted-foreground mt-1">
                             {product
                                 ? "Ürün bilgilerini güncelleyin."
-                                : "Yeni bir ürün oluşturmak için formu doldurun."}
+                                : "Adım adım ürün oluşturun."}
                         </p>
                     </div>
                     <Button
@@ -302,281 +664,64 @@ export function ProductForm({ product }: ProductFormProps) {
                     </Button>
                 </div>
 
-                {/* Temel Bilgiler */}
-                <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground">Temel Bilgiler</h3>
+                {/* Stepper */}
+                <Stepper
+                    steps={STEPS}
+                    currentStep={currentStep}
+                    allowAllSteps={!!product}
+                    onStepClick={(step) => {
+                        setCurrentStep(step)
+                    }}
+                />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="type">Ürün Tipi *</Label>
-                            <Controller
-                                name="type"
-                                control={control}
-                                render={({ field }) => (
-                                    <Select value={field.value} onValueChange={field.onChange}>
-                                        <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Ürün tipi seçin" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="SIMPLE">Basit Ürün</SelectItem>
-                                            <SelectItem value="VARIANT">Varyant Ürün</SelectItem>
-                                            <SelectItem value="BUNDLE">Paket Ürün</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                            {errors.type && (
-                                <p className="text-sm text-red-600 mt-1">{errors.type.message}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="sku">SKU (Stok Kodu)</Label>
-                            <Input
-                                id="sku"
-                                {...register("sku")}
-                                placeholder="Örn: PRD-001"
-                                className="mt-1"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <Label htmlFor="name">Ürün Adı *</Label>
-                        <Input
-                            id="name"
-                            {...register("name")}
-                            placeholder="Örn: Örnek Ürün"
-                            className="mt-1"
-                        />
-                        {errors.name && (
-                            <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
-                        )}
-                    </div>
-
-                    <div>
-                        <Label htmlFor="description">Ürün Açıklaması *</Label>
-                        <div className="mt-1">
-                            <Controller
-                                name="description"
-                                control={control}
-                                render={({ field }) => (
-                                    <RichTextEditor
-                                        content={htmlDescription}
-                                        onChange={(html) => {
-                                            setHtmlDescription(html)
-                                            // HTML'i Markdown'a çevirip form'a kaydet
-                                            const markdown = html ? turndownService.turndown(html) : ""
-                                            field.onChange(markdown)
-                                        }}
-                                        placeholder="Ürün açıklamasını buraya yazın..."
-                                    />
-                                )}
-                            />
-                        </div>
-                        {errors.description && (
-                            <p className="text-sm text-red-600 mt-1">{errors.description.message}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Zengin metin editörü ile formatlanmış içerik oluşturabilirsiniz.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="basePrice">Temel Fiyat (₺) *</Label>
-                            <Input
-                                id="basePrice"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                {...register("basePrice", { valueAsNumber: true })}
-                                placeholder="0.00"
-                                className="mt-1"
-                            />
-                            {errors.basePrice && (
-                                <p className="text-sm text-red-600 mt-1">{errors.basePrice.message}</p>
-                            )}
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex items-center space-x-2 pt-6">
-                                <input
-                                    type="checkbox"
-                                    id="isOnSale"
-                                    {...register("isOnSale")}
-                                    className="w-4 h-4 rounded border-border"
-                                />
-                                <Label htmlFor="isOnSale" className="cursor-pointer">
-                                    İndirimde
-                                </Label>
-                            </div>
-
-                            {isOnSale && (
-                                <div>
-                                    <Label htmlFor="discountPercent">İndirim Yüzdesi (%)</Label>
-                                    <Input
-                                        id="discountPercent"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        max="100"
-                                        {...register("discountPercent", { valueAsNumber: true })}
-                                        placeholder="0.00"
-                                        className="mt-1"
-                                    />
-                                    {errors.discountPercent && (
-                                        <p className="text-sm text-red-600 mt-1">
-                                            {errors.discountPercent.message}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                id="isActive"
-                                {...register("isActive")}
-                                className="w-4 h-4 rounded border-border"
-                            />
-                            <Label htmlFor="isActive" className="cursor-pointer">
-                                Aktif
-                            </Label>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                id="isFeatured"
-                                {...register("isFeatured")}
-                                className="w-4 h-4 rounded border-border"
-                            />
-                            <Label htmlFor="isFeatured" className="cursor-pointer">
-                                Öne Çıkan
-                            </Label>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Kategoriler ve Taglar */}
-                <div className="space-y-4 pt-4 border-t border-border">
-                    <h3 className="text-sm font-semibold text-foreground">Kategoriler ve Taglar</h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <Label>Kategoriler</Label>
-                            <div className="mt-2 border border-border rounded-lg p-4 max-h-48 overflow-y-auto space-y-2">
-                                {categories.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">Kategori bulunamadı</p>
-                                ) : (
-                                    categories.map((category) => (
-                                        <div key={category.id} className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                id={`category-${category.id}`}
-                                                checked={categoryIds?.includes(category.id) || false}
-                                                onChange={() => toggleCategory(category.id)}
-                                                className="w-4 h-4 rounded border-border"
-                                            />
-                                            <Label
-                                                htmlFor={`category-${category.id}`}
-                                                className="cursor-pointer text-sm"
-                                            >
-                                                {category.name}
-                                            </Label>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label>Taglar</Label>
-                            <div className="mt-2 border border-border rounded-lg p-4 max-h-48 overflow-y-auto space-y-2">
-                                {tags.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">Tag bulunamadı</p>
-                                ) : (
-                                    tags.map((tag) => (
-                                        <div key={tag.id} className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                id={`tag-${tag.id}`}
-                                                checked={tagIds?.includes(tag.id) || false}
-                                                onChange={() => toggleTag(tag.id)}
-                                                className="w-4 h-4 rounded border-border"
-                                            />
-                                            <Label htmlFor={`tag-${tag.id}`} className="cursor-pointer text-sm">
-                                                <span
-                                                    className="inline-block w-3 h-3 rounded-full mr-2"
-                                                    style={{ backgroundColor: tag.color }}
-                                                />
-                                                {tag.name}
-                                            </Label>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* SEO Bilgileri */}
-                <div className="space-y-4 pt-4 border-t border-border">
-                    <h3 className="text-sm font-semibold text-foreground">SEO Ayarları</h3>
-
-                    <div>
-                        <Label htmlFor="seoTitle">SEO Başlık</Label>
-                        <Input
-                            id="seoTitle"
-                            {...register("seoTitle")}
-                            placeholder="SEO için başlık"
-                            className="mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="seoDescription">SEO Açıklama</Label>
-                        <Textarea
-                            id="seoDescription"
-                            {...register("seoDescription")}
-                            placeholder="SEO için açıklama"
-                            className="mt-1"
-                            rows={2}
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="seoKeywords">SEO Anahtar Kelimeler</Label>
-                        <Input
-                            id="seoKeywords"
-                            {...register("seoKeywords")}
-                            placeholder="Anahtar kelimeler (virgülle ayırın)"
-                            className="mt-1"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Örn: ürün, e-ticaret, satış
-                        </p>
-                    </div>
-                </div>
+                {/* Step Content */}
+                <StepContent>{renderStepContent()}</StepContent>
 
                 {/* Footer Actions */}
-                <div className="flex items-center justify-end gap-4 pt-4 border-t border-border">
+                <div className="flex items-center justify-between pt-4 border-t border-border">
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => router.push("/panel/products")}
-                        disabled={isSubmitting}
+                        onClick={handlePrevious}
+                        disabled={currentStep === 0 || isSubmitting}
+                        className="gap-2"
                     >
-                        İptal
+                        <ChevronLeft className="w-4 h-4" />
+                        Önceki
                     </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        {product ? "Güncelle" : "Oluştur"}
-                    </Button>
+
+                    <div className="flex items-center gap-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => router.push("/panel/products")}
+                            disabled={isSubmitting}
+                        >
+                            İptal
+                        </Button>
+                        {currentStep < STEPS.length - 1 ? (
+                            <Button
+                                type="button"
+                                onClick={handleNext}
+                                disabled={isSubmitting}
+                                className="gap-2"
+                            >
+                                Kaydet ve Geç
+                                <ChevronRight className="w-4 h-4" />
+                            </Button>
+                        ) : (
+                            // Son adım (Özet) - Ürün zaten oluşturulmuş, sadece products sayfasına yönlendir
+                            <Button
+                                type="button"
+                                onClick={() => router.push("/panel/products")}
+                                disabled={isSubmitting}
+                                className="gap-2"
+                            >
+                                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Tamamla
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </form>
         </div>

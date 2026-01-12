@@ -9,7 +9,7 @@ export interface Stock {
   sellableId: string
   availableQuantity: number
   reservedQuantity: number
-  lowStockThreshold: number
+  lowStockThreshold: number | null
   updatedAt: string
 }
 
