@@ -1,0 +1,84 @@
+"use client"
+
+import { useState } from "react"
+import { useAuth } from "@/hooks/useAuth"
+
+export default function LoginPage() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const { login, isLoggingIn, loginError } = useAuth()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    try {
+      login({ email, password })
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Giriş yapılırken bir hata oluştu")
+    }
+  }
+
+  // Login error'dan mesaj al
+  const displayError = error || (loginError as any)?.response?.data?.message || (loginError as any)?.message
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center mb-6">Admin Girişi</h1>
+
+        {displayError && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {displayError}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="admin@example.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Şifre
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoggingIn}
+            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoggingIn ? "Giriş yapılıyor..." : "Giriş Yap"}
+          </button>
+        </form>
+
+        <p className="mt-4 text-sm text-gray-500 text-center">
+          Bu panele sadece admin kullanıcılar giriş yapabilir.
+        </p>
+      </div>
+    </div>
+  )
+}

@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# E-Ticaret Yönetim Paneli - Frontend
 
-## Getting Started
+Next.js 16 tabanlı modern admin dashboard.
 
-First, run the development server:
+## Kurulum
+
+```bash
+npm install
+```
+
+## Geliştirme
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Kullanılan Teknolojiler
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### UI Framework
+- **shadcn/ui** - Modern, erişilebilir UI bileşenleri
+- **Tailwind CSS 4** - Utility-first CSS framework
+- **Radix UI** - Erişilebilir primitif bileşenler
+- **Lucide React** - Modern ikon kütüphanesi
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### State Management & Data Fetching
+- **TanStack Query (React Query)** - Server state yönetimi
+- **Zustand** - Client state yönetimi (hafif ve performanslı)
 
-## Learn More
+### Form Yönetimi
+- **React Hook Form** - Performanslı form yönetimi
+- **Zod** - TypeScript-first schema validation
+- **@hookform/resolvers** - Zod entegrasyonu
 
-To learn more about Next.js, take a look at the following resources:
+### Tablo & Veri Görselleştirme
+- **TanStack Table** - Güçlü tablo yönetimi
+- **Recharts** - Grafik ve chart kütüphanesi
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Diğer
+- **next-themes** - Dark mode desteği
+- **date-fns** - Tarih işlemleri
+- **react-day-picker** - Date picker bileşeni
+- **axios** - HTTP client
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Klasör Yapısı
 
-## Deploy on Vercel
+```
+frontend/
+├── app/                    # Next.js App Router
+├── components/             # React bileşenleri
+│   └── ui/                 # shadcn/ui bileşenleri
+├── lib/                    # Yardımcı fonksiyonlar
+│   ├── api.ts             # Axios instance ve interceptors
+│   ├── store.ts           # Zustand store'ları
+│   └── utils.ts           # Utility fonksiyonları
+├── providers/             # React context provider'ları
+│   ├── query-provider.tsx # TanStack Query provider
+│   └── theme-provider.tsx # Theme provider
+├── hooks/                 # Custom React hooks
+└── services/              # API service fonksiyonları
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Ortam Değişkenleri
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. `.env.example` dosyasını `.env.local` olarak kopyalayın:
+```bash
+cp .env.example .env.local
+```
+
+2. `.env.local` dosyasını düzenleyip backend API URL'inizi girin:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+**Not:** `.env.local` dosyası git'e commit edilmez (güvenlik için). `.env.example` dosyası template olarak kullanılır.
+
+## shadcn/ui Bileşenleri Ekleme
+
+Yeni bileşen eklemek için:
+
+```bash
+npx shadcn@latest add [component-name]
+```
+
+Örnek:
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add table
+npx shadcn@latest add dialog
+```
+
+## Özellikler
+
+- ✅ TypeScript desteği
+- ✅ Dark mode desteği
+- ✅ Responsive tasarım
+- ✅ JWT token yönetimi (otomatik refresh)
+- ✅ Form validation (Zod + React Hook Form)
+- ✅ Tablo yönetimi (TanStack Table)
+- ✅ Grafik desteği (Recharts)
+- ✅ Modern UI bileşenleri (shadcn/ui)
