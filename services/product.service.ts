@@ -29,9 +29,9 @@ export interface Product {
 export interface CreateProductDto {
     type: ProductType
     name: string
-    description?: string
+    description: string
     basePrice: number
-    sku: string
+    sku?: string
     isActive?: boolean
     isFeatured?: boolean
     isOnSale?: boolean

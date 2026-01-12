@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { productService, Product, ProductType, GetProductsParams } from "@/services/product.service"
 import { categoryService, Category } from "@/services/category.service"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -20,6 +21,7 @@ type SortOrder = "asc" | "desc"
 const ITEMS_PER_PAGE = 10
 
 export function ProductList() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
@@ -174,7 +176,7 @@ export function ProductList() {
     <div className="rounded-lg border border-border bg-card shadow-sm">
       {/* Filters & Search Bar */}
       <div className="border-b border-border px-6 py-4 space-y-4">
-        {/* Search */}
+        {/* Search & Actions */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -197,6 +199,13 @@ export function ProductList() {
               Filtreleri Temizle
             </Button>
           )}
+          <Button
+            onClick={() => router.push("/panel/products/new")}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Ürün
+          </Button>
         </div>
 
         {/* Filter Row */}
