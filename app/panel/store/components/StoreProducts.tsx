@@ -52,10 +52,9 @@ export function StoreProducts({ productsData }: StoreProductsProps) {
     )
   }
 
-  const calculateFinalPrice = (product: StoreProduct) => {
-    if (product.isOnSale && product.discountedPrice) {
-      return Number(product.discountedPrice)
-    }
+  // Backend'den gelen price zaten hesaplanmış final fiyat (discountedPrice + priceDelta veya basePrice + priceDelta)
+  // Bu yüzden direkt product.price kullanıyoruz
+  const getFinalPrice = (product: StoreProduct) => {
     return product.price
   }
 
@@ -92,7 +91,7 @@ export function StoreProducts({ productsData }: StoreProductsProps) {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {productsData.products.map((product) => {
-              const finalPrice = calculateFinalPrice(product)
+              const finalPrice = getFinalPrice(product)
               const hasDiscount = product.isOnSale && product.discountedPrice
               const imageUrl = getProductImage(product)
 
