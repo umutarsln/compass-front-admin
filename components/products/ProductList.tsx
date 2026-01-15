@@ -89,43 +89,43 @@ export function ProductList() {
   // Client-side sorting
   const sortedProducts = products
     ? [...products].sort((a, b) => {
-      if (!sortField) return 0
+        if (!sortField) return 0
 
-      let aValue: string | number | boolean = ""
-      let bValue: string | number | boolean = ""
+        let aValue: string | number | boolean = ""
+        let bValue: string | number | boolean = ""
 
-      switch (sortField) {
-        case "name":
-          aValue = a.name.toLowerCase()
-          bValue = b.name.toLowerCase()
-          break
-        case "basePrice":
+        switch (sortField) {
+          case "name":
+            aValue = a.name.toLowerCase()
+            bValue = b.name.toLowerCase()
+            break
+          case "basePrice":
           aValue = Number(a.basePrice)
           bValue = Number(b.basePrice)
-          break
-        case "createdAt":
-          aValue = new Date(a.createdAt).getTime()
-          bValue = new Date(b.createdAt).getTime()
-          break
-        case "isActive":
-          aValue = a.isActive
-          bValue = b.isActive
-          break
-        case "isFeatured":
-          aValue = a.isFeatured
-          bValue = b.isFeatured
-          break
-      }
+            break
+          case "createdAt":
+            aValue = new Date(a.createdAt).getTime()
+            bValue = new Date(b.createdAt).getTime()
+            break
+          case "isActive":
+            aValue = a.isActive
+            bValue = b.isActive
+            break
+          case "isFeatured":
+            aValue = a.isFeatured
+            bValue = b.isFeatured
+            break
+        }
 
-      if (typeof aValue === "boolean" && typeof bValue === "boolean") {
-        if (aValue === bValue) return 0
-        return sortOrder === "asc" ? (aValue ? -1 : 1) : aValue ? 1 : -1
-      }
+        if (typeof aValue === "boolean" && typeof bValue === "boolean") {
+          if (aValue === bValue) return 0
+          return sortOrder === "asc" ? (aValue ? -1 : 1) : aValue ? 1 : -1
+        }
 
-      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
-      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
-      return 0
-    })
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
+        return 0
+      })
     : []
 
   // Client-side search
@@ -255,7 +255,7 @@ export function ProductList() {
             <Filter className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Filtreler:</span>
           </div>
-
+          
           {/* Type Filter */}
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProductType | "all")}>
             <SelectTrigger className="w-[150px]">
@@ -449,9 +449,9 @@ export function ProductList() {
                     <div className="flex flex-col gap-1">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${product.isActive
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                          }`}
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        }`}
                       >
                         {product.isActive ? "Aktif" : "Pasif"}
                       </span>
@@ -537,7 +537,7 @@ export function ProductList() {
               "Ürün bulunamadı"
             )}
           </div>
-
+          
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <Button
@@ -548,7 +548,7 @@ export function ProductList() {
               >
                 Önceki
               </Button>
-
+              
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                   if (
@@ -577,7 +577,7 @@ export function ProductList() {
                   return null
                 })}
               </div>
-
+              
               <Button
                 variant="outline"
                 size="sm"

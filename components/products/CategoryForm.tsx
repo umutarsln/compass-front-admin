@@ -162,7 +162,7 @@ export function CategoryForm({ open, onOpenChange, category, categories = [], ca
       e.preventDefault()
       e.stopPropagation()
     }
-    
+
     setIsSubmitting(true)
     try {
       const submitData: CreateCategoryDto | UpdateCategoryDto = {
@@ -179,9 +179,9 @@ export function CategoryForm({ open, onOpenChange, category, categories = [], ca
       }
 
       if (category) {
-        await updateMutation.mutateAsync({ id: category.id, data: submitData })
+        await updateMutation.mutateAsync({ id: category.id, data: submitData as UpdateCategoryDto })
       } else {
-        await createMutation.mutateAsync(submitData)
+        await createMutation.mutateAsync(submitData as CreateCategoryDto)
       }
     } catch (error) {
       // Error handled in mutation
@@ -241,26 +241,66 @@ export function CategoryForm({ open, onOpenChange, category, categories = [], ca
       // Tree yapısını kullan
       return flattenCategoryTree(categoryTree, 0, category?.id)
     } else {
-      // Fallback: Düz liste kullan (eski yöntem)
-      return categories
-        .filter((cat) => !category || (cat.id !== category.id && cat.parentId !== category.id))
-        .map((cat) => {
-          // Depth ve path hesapla
-          let depth = 0
-          const path: string[] = [cat.name]
-          let currentId: string | null = cat.parentId
-          while (currentId) {
-            depth++
-            const parent = categories.find((c) => c.id === currentId)
-            if (parent) {
-              path.unshift(parent.name)
-              currentId = parent.parentId
-            } else {
-              break
-            }
+      // Fallback: Düz listeden hiyerarşik yapı oluştur
+      const filteredCategories = categories.filter(
+        (cat) => !category || (cat.id !== category.id && cat.parentId !== category.id)
+      )
+
+      // Root kategorileri bul (parentId null olanlar)
+      const rootCategories = filteredCategories.filter((cat) => !cat.parentId)
+
+      // Recursive olarak tree yapısı oluştur
+      const buildTreeFromFlat = (
+        parentId: string | null,
+        level: number = 0,
+        parentPath: string[] = []
+      ): Array<{ category: CategoryTree; level: number; path: string[] }> => {
+        const result: Array<{ category: CategoryTree; level: number; path: string[] }> = []
+
+        const children = filteredCategories.filter((cat) => cat.parentId === parentId)
+
+        for (const cat of children) {
+          const currentPath = [...parentPath, cat.name]
+          const treeNode: CategoryTree = {
+            id: cat.id,
+            name: cat.name,
+            slug: cat.slug,
+            children: [],
           }
-          return { category: categoryToTree(cat), level: depth, path }
+
+          result.push({
+            category: treeNode,
+            level,
+            path: currentPath,
+          })
+
+          // Alt kategorileri recursive olarak ekle
+          const childResults = buildTreeFromFlat(cat.id, level + 1, currentPath)
+          result.push(...childResults)
+        }
+
+        return result
+      }
+
+      // Root kategorileri ve alt kategorilerini sırayla ekle
+      const result: Array<{ category: CategoryTree; level: number; path: string[] }> = []
+      for (const root of rootCategories) {
+        const treeNode: CategoryTree = {
+          id: root.id,
+          name: root.name,
+          slug: root.slug,
+          children: [],
+        }
+        result.push({
+          category: treeNode,
+          level: 0,
+          path: [root.name],
         })
+        // Alt kategorileri ekle
+        result.push(...buildTreeFromFlat(root.id, 1, [root.name]))
+      }
+
+      return result
     }
   }
 
@@ -327,7 +367,7 @@ export function CategoryForm({ open, onOpenChange, category, categories = [], ca
                     const indent = "  ".repeat(item.level)
                     const prefix = item.level > 0 ? "└─ " : ""
                     const fullPath = item.path.join(" > ")
-                    
+
                     return (
                       <SelectItem key={item.category.id} value={item.category.id}>
                         <div className="flex items-center gap-2">
