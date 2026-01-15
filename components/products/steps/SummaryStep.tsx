@@ -71,8 +71,8 @@ export function SummaryStep({ productId, productType = "SIMPLE" }: SummaryStepPr
     )
   }
 
-  const finalPrice = product.isOnSale && product.discountPercent
-    ? Number(product.basePrice) * (1 - Number(product.discountPercent) / 100)
+  const finalPrice = product.isOnSale && product.discountedPrice
+    ? Number(product.discountedPrice)
     : Number(product.basePrice)
 
   return (
@@ -110,9 +110,9 @@ export function SummaryStep({ productId, productType = "SIMPLE" }: SummaryStepPr
               <span className="text-muted-foreground">Fiyat:</span>
               <span className="font-medium text-foreground">
                 ₺{Number(product.basePrice).toFixed(2)}
-                {product.isOnSale && product.discountPercent && (
+                {product.isOnSale && product.discountedPrice && (
                   <span className="ml-2 text-green-600">
-                    (₺{finalPrice.toFixed(2)} - %{Number(product.discountPercent).toFixed(1)} indirim)
+                    (₺{finalPrice.toFixed(2)} - İndirimli)
                   </span>
                 )}
               </span>

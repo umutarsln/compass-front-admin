@@ -52,6 +52,22 @@ export function BasicInfoStep({
       </div>
 
       <div>
+        <Label htmlFor="subtitle">Alt Başlık</Label>
+        <Input
+          id="subtitle"
+          {...register("subtitle")}
+          placeholder="Örn: Kısa ve öz ürün açıklaması (liste görünümünde gösterilir)"
+          className="mt-1"
+        />
+        {errors.subtitle && (
+          <p className="text-sm text-red-600 mt-1">{errors.subtitle.message}</p>
+        )}
+        <p className="text-xs text-muted-foreground mt-1">
+          Ürün listesinde ürün adının altında gösterilecek kısa açıklama (opsiyonel)
+        </p>
+      </div>
+
+      <div>
         <Label htmlFor="description">Ürün Açıklaması *</Label>
         <div className="mt-1">
           <Controller

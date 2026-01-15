@@ -81,17 +81,16 @@ export function PricingStep({
 
           {isOnSale && (
             <div>
-              <Label htmlFor="discountPercent">İndirim Yüzdesi (%)</Label>
+              <Label htmlFor="discountedPrice">İndirimli Fiyat (₺)</Label>
               <Controller
-                name="discountPercent"
+                name="discountedPrice"
                 control={control}
                 render={({ field }) => (
                   <Input
-                    id="discountPercent"
+                    id="discountedPrice"
                     type="number"
                     step="0.01"
                     min="0"
-                    max="100"
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
@@ -99,8 +98,8 @@ export function PricingStep({
                         field.onChange(undefined)
                       } else {
                         const numValue = parseFloat(e.target.value)
-                        // Geçerli bir sayı ise (NaN değilse ve 0-100 arasındaysa)
-                        if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                        // Geçerli bir sayı ise (NaN değilse ve >= 0)
+                        if (!isNaN(numValue) && numValue >= 0) {
                           field.onChange(numValue)
                         } else {
                           // Geçersiz değer ise undefined set et
@@ -113,13 +112,13 @@ export function PricingStep({
                   />
                 )}
               />
-              {errors.discountPercent && (
+              {errors.discountedPrice && (
                 <p className="text-sm text-red-600 mt-1">
-                  {errors.discountPercent.message}
+                  {errors.discountedPrice.message}
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                İndirimli fiyat otomatik hesaplanacaktır.
+                İndirimli fiyat direkt olarak bu değer kullanılacaktır.
               </p>
             </div>
           )}

@@ -32,6 +32,7 @@ export interface Product {
     id: string
     type: ProductType
     name: string
+    subtitle: string | null
     slug: string
     description: string | null
     basePrice: number
@@ -39,7 +40,7 @@ export interface Product {
     isActive: boolean
     isFeatured: boolean
     isOnSale: boolean
-    discountPercent: number | null
+    discountedPrice: number | null
     seoTitle: string | null
     seoDescription: string | null
     seoKeywords: string[] | null
@@ -54,13 +55,14 @@ export interface Product {
 export interface CreateProductDto {
     type: ProductType
     name: string
+    subtitle?: string
     description: string
     basePrice: number
     sku?: string
     isActive?: boolean
     isFeatured?: boolean
     isOnSale?: boolean
-    discountPercent?: number | null
+    discountedPrice?: number | null
     seoTitle?: string
     seoDescription?: string
     seoKeywords?: string[]

@@ -35,13 +35,14 @@ import { VariantCombinationsStep } from "./steps/VariantCombinationsStep"
 const productSchema = z.object({
     type: z.enum(["SIMPLE", "VARIANT", "BUNDLE"]),
     name: z.string().min(1, "Ürün adı gereklidir"),
+    subtitle: z.string().optional().nullable(),
     description: z.string().min(1, "Ürün açıklaması gereklidir"),
     basePrice: z.number().min(0, "Fiyat 0'dan büyük olmalıdır"),
     sku: z.string().optional(),
     isActive: z.boolean().default(true),
     isFeatured: z.boolean().default(false),
     isOnSale: z.boolean().default(false),
-    discountPercent: z.number().min(0).max(100).nullable().optional(),
+    discountedPrice: z.number().min(0).nullable().optional(),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     seoKeywords: z.string().optional(),
@@ -49,15 +50,15 @@ const productSchema = z.object({
     tagIds: z.array(z.string()).default([]),
 }).refine(
     (data) => {
-        // Eğer isOnSale true ise discountPercent olmalı
-        if (data.isOnSale && (!data.discountPercent || data.discountPercent <= 0)) {
+        // Eğer isOnSale true ise discountedPrice olmalı
+        if (data.isOnSale && (!data.discountedPrice || data.discountedPrice <= 0)) {
             return false
         }
         return true
     },
     {
-        message: "İndirimde ürünler için indirim yüzdesi gereklidir",
-        path: ["discountPercent"],
+        message: "İndirimde ürünler için indirimli fiyat gereklidir",
+        path: ["discountedPrice"],
     }
 )
 
@@ -210,13 +211,14 @@ export function ProductForm({ product }: ProductFormProps) {
         defaultValues: {
             type: "SIMPLE",
             name: "",
+            subtitle: null,
             description: "",
             basePrice: 0,
             sku: "",
             isActive: true,
             isFeatured: false,
             isOnSale: false,
-            discountPercent: null,
+            discountedPrice: null,
             seoTitle: "",
             seoDescription: "",
             seoKeywords: "",
@@ -254,13 +256,14 @@ export function ProductForm({ product }: ProductFormProps) {
             reset({
                 type: product.type,
                 name: product.name,
+                subtitle: product.subtitle || null,
                 description: product.description || "",
                 basePrice: product.basePrice,
                 sku: product.sku || "",
                 isActive: product.isActive,
                 isFeatured: product.isFeatured,
                 isOnSale: product.isOnSale,
-                discountPercent: product.discountPercent,
+                discountedPrice: product.discountedPrice,
                 seoTitle: product.seoTitle || "",
                 seoDescription: product.seoDescription || "",
                 seoKeywords: product.seoKeywords?.join(", ") || "",
@@ -411,23 +414,42 @@ export function ProductForm({ product }: ProductFormProps) {
                 const formData = watch()
                 const productId = createdProductId || product?.id
 
-                // Fiyatlandırma adımından sonra, ürünü güncelle
-                if (currentStepData.id === "pricing" && productId) {
+                // Temel bilgiler adımından sonra, ürünü güncelle (name, subtitle, description)
+                if (currentStepData.id === "basic" && productId) {
+                    const markdownDescription = htmlDescription
+                        ? turndownService.turndown(htmlDescription)
+                        : ""
                     await updateCategoriesTagsMutation.mutateAsync({
                         id: productId,
                         data: {
-                            basePrice: formData.basePrice,
-                            isOnSale: formData.isOnSale,
-                            // isOnSale true ise ve discountPercent geçerli bir sayı ise gönder
-                            ...(formData.isOnSale &&
-                                formData.discountPercent !== null &&
-                                formData.discountPercent !== undefined &&
-                                !isNaN(Number(formData.discountPercent)) &&
-                                Number(formData.discountPercent) >= 0 &&
-                                Number(formData.discountPercent) <= 100
-                                ? { discountPercent: Number(formData.discountPercent) }
-                                : {}),
+                            name: formData.name,
+                            subtitle: formData.subtitle || undefined,
+                            description: markdownDescription || formData.description,
                         },
+                    })
+                }
+
+                // Fiyatlandırma adımından sonra, ürünü güncelle
+                if (currentStepData.id === "pricing" && productId) {
+                    const pricingData: any = {
+                        basePrice: formData.basePrice,
+                        isOnSale: formData.isOnSale,
+                    }
+
+                    // discountedPrice: Geçerli bir değer varsa her zaman gönder, yoksa null gönder
+                    if (formData.discountedPrice !== null &&
+                        formData.discountedPrice !== undefined &&
+                        !isNaN(Number(formData.discountedPrice)) &&
+                        Number(formData.discountedPrice) >= 0) {
+                        pricingData.discountedPrice = Number(formData.discountedPrice)
+                    } else {
+                        // Geçerli değer yoksa null gönder (açıkça)
+                        pricingData.discountedPrice = null
+                    }
+
+                    await updateCategoriesTagsMutation.mutateAsync({
+                        id: productId,
+                        data: pricingData,
                     })
                 }
 
@@ -476,29 +498,33 @@ export function ProductForm({ product }: ProductFormProps) {
         const createData: CreateProductDto = {
             type: formData.type,
             name: formData.name,
+            subtitle: formData.subtitle || undefined,
             description: markdownDescription || formData.description,
             basePrice: formData.basePrice,
             sku: formData.sku || undefined,
             isActive: formData.isActive,
             isFeatured: formData.isFeatured,
             isOnSale: formData.isOnSale,
-            // isOnSale true ise ve discountPercent geçerli bir sayı ise gönder
-            ...(formData.isOnSale &&
-                formData.discountPercent !== null &&
-                formData.discountPercent !== undefined &&
-                !isNaN(Number(formData.discountPercent)) &&
-                Number(formData.discountPercent) >= 0 &&
-                Number(formData.discountPercent) <= 100
-                ? { discountPercent: Number(formData.discountPercent) }
-                : {}),
-            seoTitle: formData.seoTitle || undefined,
-            seoDescription: formData.seoDescription || undefined,
-            seoKeywords: formData.seoKeywords
-                ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
-                : undefined,
-            categoryIds: formData.categoryIds.length > 0 ? formData.categoryIds : undefined,
-            tagIds: formData.tagIds.length > 0 ? formData.tagIds : undefined,
         }
+
+        // discountedPrice: Geçerli bir değer varsa gönder, yoksa null gönder
+        if (formData.discountedPrice !== null &&
+            formData.discountedPrice !== undefined &&
+            !isNaN(Number(formData.discountedPrice)) &&
+            Number(formData.discountedPrice) >= 0) {
+            createData.discountedPrice = Number(formData.discountedPrice)
+        } else {
+            createData.discountedPrice = null
+        }
+
+        // SEO ve diğer alanları ekle
+        createData.seoTitle = formData.seoTitle || undefined
+        createData.seoDescription = formData.seoDescription || undefined
+        createData.seoKeywords = formData.seoKeywords
+            ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
+            : undefined
+        createData.categoryIds = formData.categoryIds.length > 0 ? formData.categoryIds : undefined
+        createData.tagIds = formData.tagIds.length > 0 ? formData.tagIds : undefined
 
         await createMutation.mutateAsync(createData)
     }
@@ -516,29 +542,33 @@ export function ProductForm({ product }: ProductFormProps) {
                 const updateData: UpdateProductDto = {
                     type: data.type,
                     name: data.name,
+                    subtitle: data.subtitle || undefined,
                     description: markdownDescription || data.description,
                     basePrice: data.basePrice,
                     sku: data.sku || undefined,
                     isActive: data.isActive,
                     isFeatured: data.isFeatured,
                     isOnSale: data.isOnSale,
-                    // isOnSale true ise ve discountPercent geçerli bir sayı ise gönder
-                    ...(data.isOnSale &&
-                        data.discountPercent !== null &&
-                        data.discountPercent !== undefined &&
-                        !isNaN(Number(data.discountPercent)) &&
-                        Number(data.discountPercent) >= 0 &&
-                        Number(data.discountPercent) <= 100
-                        ? { discountPercent: Number(data.discountPercent) }
-                        : {}),
-                    seoTitle: data.seoTitle || undefined,
-                    seoDescription: data.seoDescription || undefined,
-                    seoKeywords: data.seoKeywords
-                        ? data.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
-                        : undefined,
-                    categoryIds: data.categoryIds.length > 0 ? data.categoryIds : undefined,
-                    tagIds: data.tagIds.length > 0 ? data.tagIds : undefined,
                 }
+
+                // discountedPrice: Geçerli bir değer varsa gönder, yoksa null gönder
+                if (data.discountedPrice !== null &&
+                    data.discountedPrice !== undefined &&
+                    !isNaN(Number(data.discountedPrice)) &&
+                    Number(data.discountedPrice) >= 0) {
+                    updateData.discountedPrice = Number(data.discountedPrice)
+                } else {
+                    updateData.discountedPrice = null
+                }
+
+                // SEO ve diğer alanları ekle
+                updateData.seoTitle = data.seoTitle || undefined
+                updateData.seoDescription = data.seoDescription || undefined
+                updateData.seoKeywords = data.seoKeywords
+                    ? data.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
+                    : undefined
+                updateData.categoryIds = data.categoryIds.length > 0 ? data.categoryIds : undefined
+                updateData.tagIds = data.tagIds.length > 0 ? data.tagIds : undefined
                 await updateMutation.mutateAsync({
                     id: product?.id || createdProductId!,
                     data: updateData,

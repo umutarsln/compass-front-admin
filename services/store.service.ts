@@ -1,5 +1,6 @@
 import api from "@/lib/api"
 import { AxiosResponse } from "axios"
+import { CategoryTree } from "./category.service"
 
 export interface StoreProductGallery {
   mainImage: {
@@ -27,12 +28,13 @@ export interface StoreProduct {
   productId: string
   variantCombinationId: string | null
   name: string
+  subtitle: string | null
   slug: string
   description: string
   price: number
   basePrice: number
   isOnSale: boolean
-  discountPercent: number | null
+  discountedPrice: number | null
   sku: string | null
   stock: {
     availableQuantity: number
@@ -77,8 +79,8 @@ export interface StoreProductListResponse {
 
 export interface StoreProductQuery {
   search?: string
-  categoryId?: string
-  tagIds?: string
+  categorySlugs?: string
+  tagSlugs?: string
   minPrice?: number
   maxPrice?: number
   orderBy?: "price_asc" | "price_desc" | "name_asc" | "name_desc" | "created_at_asc" | "created_at_desc"
@@ -99,8 +101,8 @@ export class StoreService {
     const params = new URLSearchParams()
     
     if (query?.search) params.append("search", query.search)
-    if (query?.categoryId) params.append("categoryId", query.categoryId)
-    if (query?.tagIds) params.append("tagIds", query.tagIds)
+    if (query?.categorySlugs) params.append("categorySlugs", query.categorySlugs)
+    if (query?.tagSlugs) params.append("tagSlugs", query.tagSlugs)
     if (query?.minPrice !== undefined) params.append("minPrice", query.minPrice.toString())
     if (query?.maxPrice !== undefined) params.append("maxPrice", query.maxPrice.toString())
     if (query?.orderBy) params.append("orderBy", query.orderBy)
@@ -112,6 +114,29 @@ export class StoreService {
     )
     return response.data
   }
+
+  /**
+   * Mağaza için kategorileri getir (hiyerarşik)
+   */
+  async getCategories(): Promise<CategoryTree[]> {
+    const response: AxiosResponse<CategoryTree[]> = await api.get("/store/categories")
+    return response.data
+  }
+
+  /**
+   * Mağaza için tag'leri getir
+   */
+  async getTags(): Promise<StoreTag[]> {
+    const response: AxiosResponse<StoreTag[]> = await api.get("/store/tags")
+    return response.data
+  }
+}
+
+export interface StoreTag {
+  id: string
+  name: string
+  slug: string
+  color: string | null
 }
 
 export const storeService = new StoreService()

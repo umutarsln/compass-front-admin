@@ -190,9 +190,8 @@ export function ProductList() {
 
   const calculateFinalPrice = (product: Product) => {
     const basePrice = Number(product.basePrice)
-    if (product.isOnSale && product.discountPercent) {
-      const discountPercent = Number(product.discountPercent)
-      return basePrice * (1 - discountPercent / 100)
+    if (product.isOnSale && product.discountedPrice) {
+      return Number(product.discountedPrice)
     }
     return basePrice
   }
@@ -357,6 +356,11 @@ export function ProductList() {
                       <div className="text-sm font-medium text-foreground">
                         {product.name}
                       </div>
+                      {product.subtitle && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {product.subtitle}
+                        </div>
+                      )}
                       {product.slug && (
                         <div className="text-xs text-muted-foreground mt-1">
                           /{product.slug}
@@ -380,7 +384,7 @@ export function ProductList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
-                      {product.isOnSale && product.discountPercent ? (
+                      {product.isOnSale && product.discountedPrice ? (
                         <>
                           <div className="text-sm font-medium text-foreground">
                             ₺{calculateFinalPrice(product).toFixed(2)}
@@ -389,7 +393,7 @@ export function ProductList() {
                             ₺{Number(product.basePrice).toFixed(2)}
                           </div>
                           <div className="text-xs text-green-600 dark:text-green-400">
-                            %{Number(product.discountPercent).toFixed(1)} indirim
+                            İndirimli
                           </div>
                         </>
                       ) : (
