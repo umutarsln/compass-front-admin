@@ -136,7 +136,10 @@ export function VariantCombinationsStep({
   // Stock update mutation
   const updateStockMutation = useMutation({
     mutationFn: ({ combinationId, data }: { combinationId: string; data: { availableQuantity: number; lowStockThreshold?: number | null } }) =>
-      stockService.updateStock("VARIANT_COMBINATION", combinationId, data),
+      stockService.updateStock("VARIANT_COMBINATION", combinationId, {
+        availableQuantity: data.availableQuantity,
+        lowStockThreshold: data.lowStockThreshold ?? undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["variantCombinations", productId] })
       queryClient.invalidateQueries({ queryKey: ["stock"] })
