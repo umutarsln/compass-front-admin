@@ -552,7 +552,6 @@ export function VariantCombinationsStep({
             <div className="py-4">
               <ProductGalleryManager
                 productId={null}
-                productType={productType}
                 variantCombinationId={selectedCombinationId}
                 onValidationChange={() => {}}
                 onGallerySaved={() => {

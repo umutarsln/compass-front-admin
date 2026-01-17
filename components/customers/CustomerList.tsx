@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { customerService, GetCustomersParams, User } from "@/services/customer.service"
+import { customerService, GetCustomersParams } from "@/services/customer.service"
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from "lucide-react"
 
 type SortField = "firstname" | "lastname" | "email" | "phone" | "createdAt" | null
@@ -28,38 +28,38 @@ export function CustomerList() {
   // Client-side sorting (backend'de sort yoksa)
   const sortedCustomers = customers
     ? [...customers].sort((a, b) => {
-        if (!sortField) return 0
+      if (!sortField) return 0
 
-        let aValue: string | number = ""
-        let bValue: string | number = ""
+      let aValue: string | number = ""
+      let bValue: string | number = ""
 
-        switch (sortField) {
-          case "firstname":
-            aValue = a.firstname.toLowerCase()
-            bValue = b.firstname.toLowerCase()
-            break
-          case "lastname":
-            aValue = a.lastname.toLowerCase()
-            bValue = b.lastname.toLowerCase()
-            break
-          case "email":
-            aValue = a.email.toLowerCase()
-            bValue = b.email.toLowerCase()
-            break
-          case "phone":
-            aValue = a.phone
-            bValue = b.phone
-            break
-          case "createdAt":
-            aValue = new Date(a.createdAt).getTime()
-            bValue = new Date(b.createdAt).getTime()
-            break
-        }
+      switch (sortField) {
+        case "firstname":
+          aValue = a.firstname.toLowerCase()
+          bValue = b.firstname.toLowerCase()
+          break
+        case "lastname":
+          aValue = a.lastname.toLowerCase()
+          bValue = b.lastname.toLowerCase()
+          break
+        case "email":
+          aValue = a.email.toLowerCase()
+          bValue = b.email.toLowerCase()
+          break
+        case "phone":
+          aValue = a.phone
+          bValue = b.phone
+          break
+        case "createdAt":
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+          break
+      }
 
-        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
-        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
-        return 0
-      })
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
+      return 0
+    })
     : []
 
   // Client-side search (backend'de search yoksa)

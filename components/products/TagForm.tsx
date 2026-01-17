@@ -129,16 +129,16 @@ export function TagForm({ open, onOpenChange, tag }: TagFormProps) {
     
     setIsSubmitting(true)
     try {
-      const submitData: CreateTagDto | UpdateTagDto = {
+      const submitData = {
         name: data.name,
         description: data.description || undefined,
         color: data.color,
       }
 
       if (tag) {
-        await updateMutation.mutateAsync({ id: tag.id, data: submitData })
+        await updateMutation.mutateAsync({ id: tag.id, data: submitData as UpdateTagDto })
       } else {
-        await createMutation.mutateAsync(submitData)
+        await createMutation.mutateAsync(submitData as CreateTagDto)
       }
     } catch (error) {
       // Error handled in mutation

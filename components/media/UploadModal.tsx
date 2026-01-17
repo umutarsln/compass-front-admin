@@ -53,7 +53,7 @@ export function UploadModal({
 
     onUploadFiles({
       files: selectedFiles,
-      displayNames: displayNames.map(name => name.trim() || undefined),
+      displayNames: displayNames.map(name => name.trim()),
     })
 
     // Reset form

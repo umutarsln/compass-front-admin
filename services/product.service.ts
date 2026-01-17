@@ -98,6 +98,7 @@ export interface UpdateVariantOptionDto extends Partial<CreateVariantOptionDto> 
 export interface VariantValue {
   id: string
   variantOptionId: string
+  variantOption?: VariantOption
   value: string
   colorCode: string | null
   priceDelta: number
@@ -463,6 +464,7 @@ export interface VariantCombination {
     variantValues: VariantValue[]
     galleries?: ProductGallery[]
     stock?: any
+    priceOverride?: number | null
     createdAt: string
     updatedAt: string
 }

@@ -17,7 +17,7 @@ import { Plus, Loader2, CheckSquare, Square, Move, Trash2, X, CheckCircle2, Circ
 export function MediaLibrary() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  
+
   // Mevcut klasör ID (null = root)
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
@@ -167,19 +167,19 @@ export function MediaLibrary() {
   const moveFolderMutation = useMutation({
     mutationFn: (data: { folderId: string; targetParentId: string | null }) =>
       folderService.update(data.folderId, {
-        parentId: data.targetParentId === null ? null : data.targetParentId,
+        parentId: data.targetParentId || undefined,
       }),
     onSuccess: (updatedFolder) => {
       // Tüm cache'leri invalidate et (tüm klasörler ve upload'lar)
       queryClient.invalidateQueries({ queryKey: ["folders"] })
       queryClient.invalidateQueries({ queryKey: ["uploads"] })
       queryClient.invalidateQueries({ queryKey: ["allFolders"] })
-      
+
       // Eski ve yeni parent klasörlerinin cache'lerini de invalidate et
       if (folderToMove) {
         const oldParentId = folderToMove.parentId
         const newParentId = updatedFolder.parentId
-        
+
         // Eski parent klasörünün cache'ini invalidate et
         if (oldParentId) {
           queryClient.invalidateQueries({ queryKey: ["folders", oldParentId] })
@@ -188,7 +188,7 @@ export function MediaLibrary() {
           queryClient.invalidateQueries({ queryKey: ["folders", null] })
           queryClient.invalidateQueries({ queryKey: ["uploads", null] })
         }
-        
+
         // Yeni parent klasörünün cache'ini invalidate et
         if (newParentId) {
           queryClient.invalidateQueries({ queryKey: ["folders", newParentId] })
@@ -197,17 +197,17 @@ export function MediaLibrary() {
           queryClient.invalidateQueries({ queryKey: ["folders", null] })
           queryClient.invalidateQueries({ queryKey: ["uploads", null] })
         }
-        
+
         // Taşınan klasörün kendi cache'ini invalidate et
         queryClient.invalidateQueries({ queryKey: ["folders", folderToMove.id] })
         queryClient.invalidateQueries({ queryKey: ["uploads", folderToMove.id] })
       }
-      
+
       // Eğer taşınan klasör şu anda görüntülenen klasörse, yeni parent klasörüne yönlendir
       if (folderToMove && currentFolderId === folderToMove.id) {
         setCurrentFolderId(updatedFolder.parentId)
       }
-      
+
       toast({
         variant: "success",
         title: "Klasör Taşındı",
@@ -313,7 +313,7 @@ export function MediaLibrary() {
 
   const handleBulkDelete = () => {
     if (selectedFolderIds.size === 0 && selectedUploadIds.size === 0) return
-    
+
     const totalCount = selectedFolderIds.size + selectedUploadIds.size
     if (confirm(`${totalCount} öğeyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
       bulkDeleteMutation.mutate()
@@ -326,7 +326,7 @@ export function MediaLibrary() {
       // Klasörleri taşı
       for (const folderId of selectedFolderIds) {
         await folderService.update(folderId, {
-          parentId: targetParentId === null ? null : targetParentId,
+          parentId: targetParentId || undefined,
         })
       }
       // Upload'ları taşı (folderId güncelle)

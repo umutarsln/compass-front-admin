@@ -146,7 +146,7 @@ export function MediaLibrarySelect({
   }, [currentFolderId, open])
 
   // Klasöre çift tıklama ile gir
-  const handleFolderDoubleClick = (folderId: string) => {
+  const handleFolderDoubleClick = (folderId: string | null) => {
     setCurrentFolderId(folderId)
   }
 
