@@ -13,6 +13,7 @@ import {
   LogOut,
   Shield,
   Image,
+  BookOpen,
 } from "lucide-react"
 
 interface NavItem {
@@ -23,42 +24,47 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    label: "Dashboard",
+    label: "Ana Sayfa",
     icon: LayoutDashboard,
     path: "/panel/dashboard",
   },
   {
-    label: "Orders",
+    label: "Siparişler",
     icon: ShoppingCart,
     path: "/panel/orders",
   },
   {
-    label: "Products",
+    label: "Ürünler",
     icon: Package,
     path: "/panel/products",
   },
   {
-    label: "Store",
+    label: "Mağaza",
     icon: Store,
     path: "/panel/store",
   },
   {
-    label: "Customers",
+    label: "Müşteriler",
     icon: Users,
     path: "/panel/customers",
   },
   {
-    label: "Admins",
+    label: "Adminler",
     icon: Shield,
     path: "/panel/admins",
   },
   {
-    label: "Media",
+    label: "Medya",
     icon: Image,
     path: "/panel/media",
   },
   {
-    label: "Settings",
+    label: "Dokümantasyon",
+    icon: BookOpen,
+    path: "/panel/docs",
+  },
+  {
+    label: "Ayarlar",
     icon: Settings,
     path: "/panel/settings",
   },
@@ -83,7 +89,7 @@ export function Sidebar() {
               <Store className="text-2xl" />
             </div>
             <h1 className="text-lg font-bold leading-normal tracking-tight text-foreground group-hover:text-primary transition-colors duration-200">
-              E-Shop Admin
+              Admin Paneli
             </h1>
           </div>
 
@@ -126,7 +132,7 @@ export function Sidebar() {
               {user?.firstname} {user?.lastname}
             </p>
             <p className="text-xs text-muted-foreground truncate group-hover:text-foreground transition-colors duration-200">
-              {user?.email || "admin@eshop.com"}
+              {user?.email || "admin@example.com"}
             </p>
           </div>
           <button

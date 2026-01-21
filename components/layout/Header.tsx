@@ -17,15 +17,18 @@ export function Header({ title }: HeaderProps) {
     if (title) return title
 
     const pathMap: Record<string, string> = {
-      "/panel/dashboard": "Overview",
-      "/panel/orders": "Orders",
-      "/panel/products": "Products",
-      "/panel/customers": "Customers",
-      "/panel/admins": "Admins",
-      "/panel/settings": "Settings",
+      "/panel/dashboard": "Ana Sayfa",
+      "/panel/orders": "Siparişler",
+      "/panel/products": "Ürünler",
+      "/panel/customers": "Müşteriler",
+      "/panel/admins": "Adminler",
+      "/panel/media": "Medya",
+      "/panel/docs": "Dokümantasyon",
+      "/panel/store": "Mağaza",
+      "/panel/settings": "Ayarlar",
     }
 
-    return pathMap[pathname] || "Dashboard"
+    return pathMap[pathname] || "Ana Sayfa"
   }
 
   return (
@@ -43,7 +46,7 @@ export function Header({ title }: HeaderProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder="Ara..."
             className="ml-2 w-full bg-transparent text-sm font-normal text-foreground placeholder-muted-foreground focus:outline-none border-none focus:ring-0 p-0 transition-colors duration-200"
           />
         </div>
