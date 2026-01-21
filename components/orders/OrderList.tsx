@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { orderService, OrderStatus, GetOrdersParams } from "@/services/order.service"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Eye, Package } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Eye, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
-import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
 
@@ -35,20 +34,38 @@ const statusLabels: Record<OrderStatus, string> = {
   [OrderStatus.REFUNDED]: "İade Edildi",
 }
 
+type SortField = 'createdAt' | 'updatedAt' | 'total' | 'status' | 'orderNo'
+type SortOrder = 'ASC' | 'DESC'
+
 export function OrderList() {
   const router = useRouter()
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL")
+  const [sortBy, setSortBy] = useState<SortField>("createdAt")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("DESC")
   const [page, setPage] = useState(1)
   const limit = 20
+
+  // Debounced search - backend'de arama yapılacak
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  
+  // Debounce search query
+  useMemo(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1) // Reset to first page on search
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Query parametreleri
   const queryParams: GetOrdersParams = {
     limit,
     offset: (page - 1) * limit,
     ...(statusFilter !== "ALL" && { status: statusFilter }),
+    ...(debouncedSearch.trim() && { search: debouncedSearch.trim() }),
+    sortBy,
+    sortOrder,
   }
 
   // Sipariş listesi
@@ -57,44 +74,26 @@ export function OrderList() {
     queryFn: () => orderService.getAll(queryParams),
   })
 
-  // Status güncelleme mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
-      orderService.updateStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] })
-      toast({
-        title: "Başarılı",
-        description: "Sipariş durumu güncellendi",
-      })
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Hata",
-        description: error.response?.data?.message || "Sipariş durumu güncellenemedi",
-        variant: "destructive",
-      })
-    },
-  })
-
-  // Client-side search
-  const filteredOrders = ordersData?.orders.filter((order) => {
-    if (!searchQuery) return true
-    const query = searchQuery.toLowerCase()
-    return (
-      order.id.toLowerCase().includes(query) ||
-      order.guestEmail?.toLowerCase().includes(query) ||
-      order.guestPhone?.includes(query) ||
-      order.guestFirstName?.toLowerCase().includes(query) ||
-      order.guestLastName?.toLowerCase().includes(query) ||
-      order.shippingAddress?.address.toLowerCase().includes(query)
-    )
-  }) || []
-
   const totalPages = ordersData ? Math.ceil(ordersData.total / limit) : 1
 
-  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-    updateStatusMutation.mutate({ id: orderId, status: newStatus })
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC')
+    } else {
+      setSortBy(field)
+      setSortOrder('DESC')
+    }
+  }
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) {
+      return <ArrowUpDown className="w-4 h-4 ml-1 text-muted-foreground" />
+    }
+    return sortOrder === 'ASC' ? (
+      <ArrowUp className="w-4 h-4 ml-1 text-primary" />
+    ) : (
+      <ArrowDown className="w-4 h-4 ml-1 text-primary" />
+    )
   }
 
   if (isLoading) {
@@ -108,56 +107,149 @@ export function OrderList() {
   return (
     <Card className="p-6">
       <div className="flex flex-col gap-6">
-        {/* Filtreler */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        {/* Advanced Filters */}
+        <div className="flex flex-col gap-4">
+          {/* Search Bar */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Sipariş ID, email, telefon veya adres ara..."
+              placeholder="Sipariş no, email, telefon, isim, soyisim, adres ara..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 pr-10"
             />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
           </div>
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatus | "ALL")}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Durum Filtrele" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Tüm Durumlar</SelectItem>
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Select value={statusFilter} onValueChange={(value) => {
+              setStatusFilter(value as OrderStatus | "ALL")
+              setPage(1)
+            }}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Durum Filtrele" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tüm Durumlar</SelectItem>
+                {Object.entries(statusLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={(value) => {
+              setSortBy(value as SortField)
+              setPage(1)
+            }}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sırala" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="createdAt">Tarih</SelectItem>
+                <SelectItem value="updatedAt">Güncelleme</SelectItem>
+                <SelectItem value="total">Tutar</SelectItem>
+                <SelectItem value="status">Durum</SelectItem>
+                <SelectItem value="orderNo">Sipariş No</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC')}
+              className="w-full sm:w-auto"
+            >
+              {sortOrder === 'ASC' ? <ArrowUp className="w-4 h-4 mr-2" /> : <ArrowDown className="w-4 h-4 mr-2" />}
+              {sortOrder === 'ASC' ? 'Artan' : 'Azalan'}
+            </Button>
+          </div>
         </div>
+
+        {/* Results Info */}
+        {ordersData && (
+          <div className="text-sm text-muted-foreground">
+            Toplam <span className="font-semibold text-foreground">{ordersData.total}</span> sipariş bulundu
+            {debouncedSearch && (
+              <span className="ml-2">
+                - "<span className="font-semibold text-foreground">{debouncedSearch}</span>" için arama sonuçları
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Sipariş Listesi */}
         <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sipariş ID</TableHead>
-                <TableHead>Müşteri</TableHead>
-                <TableHead>Toplam</TableHead>
-                <TableHead>Durum</TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('orderNo')}
+                    className="flex items-center hover:text-foreground transition-colors"
+                  >
+                    Sipariş No
+                    <SortIcon field="orderNo" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('createdAt')}
+                    className="flex items-center hover:text-foreground transition-colors"
+                  >
+                    Müşteri
+                    <SortIcon field="createdAt" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('total')}
+                    className="flex items-center hover:text-foreground transition-colors"
+                  >
+                    Toplam
+                    <SortIcon field="total" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('status')}
+                    className="flex items-center hover:text-foreground transition-colors"
+                  >
+                    Durum
+                    <SortIcon field="status" />
+                  </button>
+                </TableHead>
                 <TableHead>Tarih</TableHead>
                 <TableHead className="text-right">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.length === 0 ? (
+              {!ordersData || ordersData.orders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Sipariş bulunamadı
+                    {debouncedSearch ? "Arama kriterlerine uygun sipariş bulunamadı" : "Sipariş bulunamadı"}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}...</TableCell>
+                ordersData.orders.map((order) => (
+                  <TableRow key={order.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-sm font-semibold">{order.orderNo}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{order.id.slice(0, 8)}...</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium">
@@ -168,6 +260,9 @@ export function OrderList() {
                         <span className="text-sm text-muted-foreground">
                           {order.guestEmail || order.guestPhone || "-"}
                         </span>
+                        {order.guestPhone && order.guestEmail && (
+                          <span className="text-xs text-muted-foreground">{order.guestPhone}</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -176,27 +271,19 @@ export function OrderList() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        <SelectTrigger className="w-[140px] h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(statusLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Badge className={statusColors[order.status]}>
+                        {statusLabels[order.status]}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(order.createdAt), "dd MMM yyyy, HH:mm", { locale: tr })}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-foreground">
+                          {format(new Date(order.createdAt), "dd MMM yyyy", { locale: tr })}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(order.createdAt), "HH:mm", { locale: tr })}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -219,25 +306,47 @@ export function OrderList() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              Toplam {ordersData?.total || 0} sipariş
+              Sayfa {page} / {totalPages} - Toplam {ordersData?.total || 0} sipariş
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
+                disabled={page === 1 || isLoading}
               >
                 Önceki
               </Button>
               <div className="flex items-center px-4 text-sm">
-                Sayfa {page} / {totalPages}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (page <= 3) {
+                    pageNum = i + 1
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = page - 2 + i
+                  }
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={page === pageNum ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setPage(pageNum)}
+                      className="mx-1"
+                    >
+                      {pageNum}
+                    </Button>
+                  )
+                })}
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
+                disabled={page === totalPages || isLoading}
               >
                 Sonraki
               </Button>

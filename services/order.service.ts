@@ -22,10 +22,34 @@ export interface OrderItem {
     totalPrice: number
     currency: string
     createdAt: string
+    product?: {
+        id: string
+        slug: string
+        galleries?: Array<{
+            mainImage?: {
+                s3Url: string
+            } | null
+            thumbnailImage?: {
+                s3Url: string
+            } | null
+        }>
+    } | null
+    variant?: {
+        id: string
+        galleries?: Array<{
+            mainImage?: {
+                s3Url: string
+            } | null
+            thumbnailImage?: {
+                s3Url: string
+            } | null
+        }>
+    } | null
 }
 
 export interface Order {
     id: string
+    orderNo: string
     userId: string | null
     cartId: string | null
     guestEmail: string | null
@@ -71,6 +95,8 @@ export interface GetOrdersParams {
     limit?: number
     offset?: number
     search?: string
+    sortBy?: string
+    sortOrder?: 'ASC' | 'DESC'
 }
 
 export interface GetOrdersResponse {

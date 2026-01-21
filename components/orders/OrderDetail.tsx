@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { orderService, OrderStatus } from "@/services/order.service"
-import { Loader2, Package, User, MapPin, CreditCard, FileText, ArrowLeft } from "lucide-react"
+import { Loader2, Package, User, MapPin, CreditCard, FileText, ArrowLeft, ExternalLink, Image as ImageIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
+import Image from "next/image"
+import Link from "next/link"
 
 const statusColors: Record<OrderStatus, string> = {
   [OrderStatus.PENDING]: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
@@ -97,7 +99,11 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
           </Button>
           <div>
             <h2 className="text-2xl font-bold">Sipariş Detayı</h2>
-            <p className="text-sm text-muted-foreground">ID: {order.id}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-muted-foreground">Sipariş No: <span className="font-mono font-semibold text-foreground">{order.orderNo || order.id}</span></p>
+              <span className="text-muted-foreground">•</span>
+              <p className="text-sm text-muted-foreground">ID: <span className="font-mono text-foreground">{order.id.slice(0, 8)}...</span></p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -142,36 +148,86 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {order.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{item.productName}</span>
-                          {item.variantId && (
-                            <span className="text-sm text-muted-foreground">Varyant: {item.variantId.slice(0, 8)}...</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right">
-                        {item.discountedPrice ? (
-                          <div className="flex flex-col items-end">
-                            <span className="text-sm line-through text-muted-foreground">
-                              {item.unitPrice.toFixed(2)} {item.currency}
-                            </span>
-                            <span className="font-medium text-primary">
-                              {item.discountedPrice.toFixed(2)} {item.currency}
-                            </span>
+                  {order.items.map((item) => {
+                    // Get product image - variant gallery first, then product gallery
+                    const productImage = item.variant?.galleries?.[0]?.thumbnailImage?.s3Url ||
+                      item.variant?.galleries?.[0]?.mainImage?.s3Url ||
+                      item.product?.galleries?.[0]?.thumbnailImage?.s3Url ||
+                      item.product?.galleries?.[0]?.mainImage?.s3Url ||
+                      null
+
+                    // Get product link
+                    const productLink = item.product?.slug
+                      ? `/panel/products/${item.product.slug}`
+                      : null
+
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="flex gap-4">
+                            {/* Product Image */}
+                            <div className="relative w-16 h-16 flex-shrink-0 bg-secondary rounded overflow-hidden">
+                              {productImage ? (
+                                <Image
+                                  src={productImage}
+                                  alt={item.productName}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Product Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2">
+                                <span className="font-medium">{item.productName}</span>
+                                {productLink && (
+                                  <Link
+                                    href={productLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-shrink-0"
+                                  >
+                                    <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                                  </Link>
+                                )}
+                              </div>
+                              {item.variantId && (
+                                <span className="text-sm text-muted-foreground block mt-1">
+                                  Varyant ID: {item.variantId.slice(0, 8)}...
+                                </span>
+                              )}
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Ürün ID: {item.productId.slice(0, 8)}...
+                              </div>
+                            </div>
                           </div>
-                        ) : (
-                          <span>{item.unitPrice.toFixed(2)} {item.currency}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {item.totalPrice.toFixed(2)} {item.currency}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">
+                          {item.discountedPrice ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm line-through text-muted-foreground">
+                                {item.unitPrice.toFixed(2)} {item.currency}
+                              </span>
+                              <span className="font-medium text-primary">
+                                {item.discountedPrice.toFixed(2)} {item.currency}
+                              </span>
+                            </div>
+                          ) : (
+                            <span>{item.unitPrice.toFixed(2)} {item.currency}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {item.totalPrice.toFixed(2)} {item.currency}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
