@@ -30,7 +30,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
               className: ["anchor-link"],
             },
           })
-          .use(rehypeHighlight, {
+          .use(rehypeHighlight as any, {
             ignoreMissing: true,
           })
           .use(rehypeStringify, { allowDangerousHtml: true })
