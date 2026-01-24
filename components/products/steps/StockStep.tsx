@@ -16,6 +16,16 @@ interface StockStepProps {
   productType?: ProductType
   variantCombinationId?: string | null
   onStockSaved?: () => void // Stock kaydedildiğinde çağrılacak callback
+  onStockChange?: (stock: {
+    availableQuantity: number
+    lowStockThreshold: number | null
+    sku: string
+  }) => void
+  initialStock?: {
+    availableQuantity: number
+    lowStockThreshold: number | null
+    sku: string
+  }
 }
 
 export function StockStep({
@@ -23,12 +33,17 @@ export function StockStep({
   productType,
   variantCombinationId,
   onStockSaved,
+  onStockChange,
+  initialStock,
 }: StockStepProps) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const [availableQuantity, setAvailableQuantity] = useState<number>(0)
-  const [lowStockThreshold, setLowStockThreshold] = useState<number | null>(null)
-  const [sku, setSku] = useState<string>("")
+  const [availableQuantity, setAvailableQuantity] = useState<number>(initialStock?.availableQuantity || 0)
+  const [lowStockThreshold, setLowStockThreshold] = useState<number | null>(initialStock?.lowStockThreshold ?? null)
+  const [sku, setSku] = useState<string>(initialStock?.sku || "")
+  
+  // productId yoksa sadece frontend state'inde tut, backend'e kaydetme
+  const isPreviewMode = !productId && !variantCombinationId
 
   // Otomatik kaydetme için debounce timer'ları
   const stockSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -89,12 +104,23 @@ export function StockStep({
     }
   }, [stock, stockError])
 
-  // Product verileri geldiğinde SKU'yu güncelle
+  // Product verileri geldiğinde SKU'yu güncelle (sadece productId varsa)
   useEffect(() => {
-    if (product) {
+    if (!isPreviewMode && product) {
       setSku(product.sku || "")
     }
-  }, [product])
+  }, [product, isPreviewMode])
+
+  // Stock değişikliklerini parent'a bildir (preview mode için)
+  useEffect(() => {
+    if (onStockChange) {
+      onStockChange({
+        availableQuantity,
+        lowStockThreshold,
+        sku,
+      })
+    }
+  }, [availableQuantity, lowStockThreshold, sku, onStockChange])
 
   // Stock güncelleme mutation (stock yoksa otomatik oluşturur)
   const updateStockMutation = useMutation({
@@ -165,6 +191,9 @@ export function StockStep({
 
   // Stok değişikliklerini otomatik kaydet (debounce ile) - Sadece basit ürünler için
   useEffect(() => {
+    // Preview mode'da kaydetme
+    if (isPreviewMode) return
+    
     // Varyasyonlu ürünlerde stok düzenlenemez
     if (productType === "VARIANT" && !variantCombinationId) return
     
@@ -202,9 +231,9 @@ export function StockStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableQuantity, lowStockThreshold, sellableId, stock, productType, isLoadingStock])
 
-  // SKU değişikliklerini otomatik kaydet (debounce ile)
+  // SKU değişikliklerini otomatik kaydet (debounce ile) - sadece productId varsa
   useEffect(() => {
-    if (!productId || !product || isLoadingProduct) return
+    if (isPreviewMode || !productId || !product || isLoadingProduct) return
 
     // Eğer SKU değişmediyse kaydetme
     const hasChanged = sku !== (product.sku || "")
@@ -228,20 +257,7 @@ export function StockStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sku, productId])
 
-  if (!productId && !variantCombinationId) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
-          <AlertCircle className="w-5 h-5 text-yellow-600" />
-          <p className="text-sm text-yellow-800">
-            Stok bilgilerini girebilmek için önce ürünü oluşturmanız gerekiyor.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
+  if (isLoading && !isPreviewMode) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -293,13 +309,14 @@ export function StockStep({
             <>
               Ürün stok bilgilerini ve SKU kodunu yönetin. Stok miktarı, düşük stok
               uyarısı eşiği ve SKU kodunu ayarlayabilirsiniz.
+              {isPreviewMode && " Ürün oluşturulduktan sonra kaydedilecektir."}
             </>
           )}
         </p>
       </div>
 
       {/* SKU Bölümü - Sadece basit ürünler için */}
-      {!variantCombinationId && productId && (
+      {!variantCombinationId && (
         <div className="p-4 border border-border rounded-lg bg-muted/30">
           <div className="flex items-center gap-2 mb-3">
             <Hash className="w-5 h-5 text-muted-foreground" />

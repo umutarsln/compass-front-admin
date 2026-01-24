@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import TurndownService from "turndown"
 import { marked } from "marked"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,8 @@ import {
 } from "@/services/product.service"
 import { categoryService, Category } from "@/services/category.service"
 import { tagService, Tag } from "@/services/tag.service"
+import { Upload } from "@/services/upload.service"
+import { stockService } from "@/services/stock.service"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, ArrowLeft, ChevronRight, ChevronLeft } from "lucide-react"
 import { ProductTypeStep } from "./steps/ProductTypeStep"
@@ -166,10 +168,34 @@ export function ProductForm({ product }: ProductFormProps) {
     const { toast } = useToast()
     const queryClient = useQueryClient()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [currentStep, setCurrentStep] = useState(0)
     const [createdProductId, setCreatedProductId] = useState<string | null>(null)
     const [isGalleryValid, setIsGalleryValid] = useState(false)
+    const [galleryState, setGalleryState] = useState<{
+        mainImage: Upload | null
+        thumbnailImage: Upload | null
+        detailImages: Upload[]
+    }>({
+        mainImage: null,
+        thumbnailImage: null,
+        detailImages: [],
+    })
+    const [stockState, setStockState] = useState<{
+        availableQuantity: number
+        lowStockThreshold: number | null
+        sku: string
+    }>({
+        availableQuantity: 0,
+        lowStockThreshold: null,
+        sku: "",
+    })
+
+    // Değişiklik kontrolü için initial state'leri tut
+    const initialGalleryState = useRef(galleryState)
+    const initialStockState = useRef(stockState)
+    const hasUnsavedChanges = useRef(false)
 
     // Turndown service for HTML to Markdown conversion
     const turndownService = new TurndownService({
@@ -201,7 +227,7 @@ export function ProductForm({ product }: ProductFormProps) {
         register,
         handleSubmit,
         control,
-        formState: { errors },
+        formState: { errors, isDirty },
         reset,
         setValue,
         watch,
@@ -239,6 +265,65 @@ export function ProductForm({ product }: ProductFormProps) {
             setCurrentStep(0)
         }
     }, [productType, product])
+
+    // Query parameter'dan tab'ı oku ve ilgili step'e yönlendir (sadece ilk yüklemede)
+    const hasInitializedTab = useRef(false)
+    useEffect(() => {
+        if (product && searchParams && !hasInitializedTab.current) {
+            const tab = searchParams.get("tab")
+            if (tab) {
+                const stepIndex = STEPS.findIndex((step) => step.id === tab)
+                if (stepIndex !== -1) {
+                    setCurrentStep(stepIndex)
+                    hasInitializedTab.current = true
+                }
+            }
+        }
+    }, [product, searchParams, STEPS])
+
+    // Değişiklik kontrolü: Form, gallery veya stock state'lerinde değişiklik var mı?
+    const checkUnsavedChanges = useCallback(() => {
+        if (!product) {
+            // Yeni ürün ekleme modunda
+            const formChanged = isDirty
+            const galleryChanged = JSON.stringify(galleryState) !== JSON.stringify(initialGalleryState.current)
+            const stockChanged = JSON.stringify(stockState) !== JSON.stringify(initialStockState.current)
+            return formChanged || galleryChanged || stockChanged
+        }
+        return false // Düzenleme modunda şimdilik kontrol etmiyoruz
+    }, [isDirty, galleryState, stockState, product])
+
+    // Browser'dan çıkarken uyarı göster
+    useEffect(() => {
+        if (!product) {
+            const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+                if (checkUnsavedChanges()) {
+                    e.preventDefault()
+                    e.returnValue = ""
+                    return ""
+                }
+            }
+
+            window.addEventListener("beforeunload", handleBeforeUnload)
+            return () => {
+                window.removeEventListener("beforeunload", handleBeforeUnload)
+            }
+        }
+    }, [checkUnsavedChanges, product])
+
+    // Sayfadan çıkarken kontrol et
+    const handleExit = (callback: () => void) => {
+        if (!product && checkUnsavedChanges()) {
+            const confirmed = window.confirm(
+                "Emin misiniz? Yaptığınız değişiklikler kaydedilmedi. Sayfadan ayrılmak istediğinize emin misiniz?"
+            )
+            if (confirmed) {
+                callback()
+            }
+        } else {
+            callback()
+        }
+    }
 
     const isOnSale = watch("isOnSale")
     const categoryIds = watch("categoryIds")
@@ -286,12 +371,6 @@ export function ProductForm({ product }: ProductFormProps) {
         onSuccess: (createdProduct) => {
             setCreatedProductId(createdProduct.id)
             queryClient.invalidateQueries({ queryKey: ["products"] })
-            toast({
-                title: "Başarılı",
-                description: "Ürün başarıyla oluşturuldu.",
-            })
-            // Bir sonraki adıma geç (normal sıra)
-            setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
         },
         onError: (error: any) => {
             toast({
@@ -313,7 +392,9 @@ export function ProductForm({ product }: ProductFormProps) {
                 title: "Başarılı",
                 description: "Ürün başarıyla güncellendi.",
             })
-            router.push("/panel/products")
+            handleExit(() => {
+                router.push("/panel/products")
+            })
         },
         onError: (error: any) => {
             toast({
@@ -362,27 +443,25 @@ export function ProductForm({ product }: ProductFormProps) {
             case "seo":
                 return true // Opsiyonel
             case "gallery":
-                // Main image ve thumbnail image zorunlu
-                if (!isGalleryValid) {
-                    toast({
-                        title: "Uyarı",
-                        description: "Ana resim ve thumbnail resim zorunludur. Lütfen resimleri seçin.",
-                        variant: "destructive",
-                    })
-                    return false
+                // Main image ve thumbnail image zorunlu - sadece productId varsa kontrol et
+                if (createdProductId || product?.id) {
+                    if (!isGalleryValid) {
+                        toast({
+                            title: "Uyarı",
+                            description: "Ana resim ve thumbnail resim zorunludur. Lütfen resimleri seçin.",
+                            variant: "destructive",
+                        })
+                        return false
+                    }
+                } else {
+                    // Yeni ürün ekleme durumunda, resimler seçilmişse valid
+                    // Resimler seçilmemişse de geçerli (opsiyonel)
+                    return true
                 }
                 return true
             case "stock":
-                // Stok adımı için ürün ID'si olmalı
-                if (!createdProductId && !product?.id) {
-                    toast({
-                        title: "Uyarı",
-                        description: "Stok bilgilerini girebilmek için önce ürünü oluşturmanız gerekiyor.",
-                        variant: "destructive",
-                    })
-                    return false
-                }
-                return true // Opsiyonel
+                // Stok adımı opsiyonel - yeni ürün ekleme durumunda da geçerli
+                return true
             case "summary":
                 // Özet adımı için ürün ID'si olmalı
                 if (!createdProductId && !product?.id) {
@@ -403,83 +482,84 @@ export function ProductForm({ product }: ProductFormProps) {
     const handleNext = async () => {
         const isValid = await validateStep(currentStep)
         if (isValid) {
+            // Yeni ürün ekleme durumunda sadece step değiştir
+            if (!product && !createdProductId) {
+                setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
+                return
+            }
+
+            // Düzenleme modunda mevcut mantık
             const currentStepData = STEPS[currentStep]
             if (!currentStepData) return
 
-            // Eğer temel bilgiler adımındaysak ve ürün henüz oluşturulmadıysa, önce ürünü oluştur
-            if (currentStepData.id === "basic" && !createdProductId && !product) {
-                await handleSaveProduct()
-                // handleSaveProduct içinde createMutation onSuccess'te zaten bir sonraki adıma geçiliyor
-            } else {
-                const formData = watch()
-                const productId = createdProductId || product?.id
+            const formData = watch()
+            const productId = createdProductId || product?.id
 
-                // Temel bilgiler adımından sonra, ürünü güncelle (name, subtitle, description)
-                if (currentStepData.id === "basic" && productId) {
-                    const markdownDescription = htmlDescription
-                        ? turndownService.turndown(htmlDescription)
-                        : ""
-                    await updateCategoriesTagsMutation.mutateAsync({
-                        id: productId,
-                        data: {
-                            name: formData.name,
-                            subtitle: formData.subtitle || undefined,
-                            description: markdownDescription || formData.description,
-                        },
-                    })
-                }
-
-                // Fiyatlandırma adımından sonra, ürünü güncelle
-                if (currentStepData.id === "pricing" && productId) {
-                    const pricingData: any = {
-                        basePrice: formData.basePrice,
-                        isOnSale: formData.isOnSale,
-                    }
-
-                    // discountedPrice: Geçerli bir değer varsa her zaman gönder, yoksa null gönder
-                    if (formData.discountedPrice !== null &&
-                        formData.discountedPrice !== undefined &&
-                        !isNaN(Number(formData.discountedPrice)) &&
-                        Number(formData.discountedPrice) >= 0) {
-                        pricingData.discountedPrice = Number(formData.discountedPrice)
-                    } else {
-                        // Geçerli değer yoksa null gönder (açıkça)
-                        pricingData.discountedPrice = null
-                    }
-
-                    await updateCategoriesTagsMutation.mutateAsync({
-                        id: productId,
-                        data: pricingData,
-                    })
-                }
-
-                // Category ve tag adımından sonra, ürünü güncelle
-                if (currentStepData.id === "categories" && productId) {
-                    await updateCategoriesTagsMutation.mutateAsync({
-                        id: productId,
-                        data: {
-                            categoryIds: formData.categoryIds.length > 0 ? formData.categoryIds : [],
-                            tagIds: formData.tagIds.length > 0 ? formData.tagIds : [],
-                        },
-                    })
-                }
-
-                // SEO adımından sonra, ürünü güncelle
-                if (currentStepData.id === "seo" && productId) {
-                    await updateCategoriesTagsMutation.mutateAsync({
-                        id: productId,
-                        data: {
-                            seoTitle: formData.seoTitle || undefined,
-                            seoDescription: formData.seoDescription || undefined,
-                            seoKeywords: formData.seoKeywords
-                                ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
-                                : undefined,
-                        },
-                    })
-                }
-
-                setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
+            // Temel bilgiler adımından sonra, ürünü güncelle (name, subtitle, description)
+            if (currentStepData.id === "basic" && productId) {
+                const markdownDescription = htmlDescription
+                    ? turndownService.turndown(htmlDescription)
+                    : ""
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        name: formData.name,
+                        subtitle: formData.subtitle || undefined,
+                        description: markdownDescription || formData.description,
+                    },
+                })
             }
+
+            // Fiyatlandırma adımından sonra, ürünü güncelle
+            if (currentStepData.id === "pricing" && productId) {
+                const pricingData: any = {
+                    basePrice: formData.basePrice,
+                    isOnSale: formData.isOnSale,
+                }
+
+                // discountedPrice: Geçerli bir değer varsa her zaman gönder, yoksa null gönder
+                if (formData.discountedPrice !== null &&
+                    formData.discountedPrice !== undefined &&
+                    !isNaN(Number(formData.discountedPrice)) &&
+                    Number(formData.discountedPrice) >= 0) {
+                    pricingData.discountedPrice = Number(formData.discountedPrice)
+                } else {
+                    // Geçerli değer yoksa null gönder (açıkça)
+                    pricingData.discountedPrice = null
+                }
+
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: pricingData,
+                })
+            }
+
+            // Category ve tag adımından sonra, ürünü güncelle
+            if (currentStepData.id === "categories" && productId) {
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        categoryIds: formData.categoryIds.length > 0 ? formData.categoryIds : [],
+                        tagIds: formData.tagIds.length > 0 ? formData.tagIds : [],
+                    },
+                })
+            }
+
+            // SEO adımından sonra, ürünü güncelle
+            if (currentStepData.id === "seo" && productId) {
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        seoTitle: formData.seoTitle || undefined,
+                        seoDescription: formData.seoDescription || undefined,
+                        seoKeywords: formData.seoKeywords
+                            ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
+                            : undefined,
+                    },
+                })
+            }
+
+            setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
         }
     }
 
@@ -489,7 +569,7 @@ export function ProductForm({ product }: ProductFormProps) {
     }
 
     // Ürünü kaydet (ara kayıt)
-    const handleSaveProduct = async () => {
+    const handleSaveProduct = async (): Promise<Product> => {
         const formData = watch()
         const markdownDescription = htmlDescription
             ? turndownService.turndown(htmlDescription)
@@ -517,19 +597,170 @@ export function ProductForm({ product }: ProductFormProps) {
             createData.discountedPrice = null
         }
 
-        // SEO ve diğer alanları ekle
-        createData.seoTitle = formData.seoTitle || undefined
-        createData.seoDescription = formData.seoDescription || undefined
-        createData.seoKeywords = formData.seoKeywords
-            ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
-            : undefined
-        createData.categoryIds = formData.categoryIds.length > 0 ? formData.categoryIds : undefined
-        createData.tagIds = formData.tagIds.length > 0 ? formData.tagIds : undefined
-
-        await createMutation.mutateAsync(createData)
+        // Final submit'te tüm veriler gönderileceği için burada sadece temel alanları gönder
+        // SEO, categories, tags final submit'te gönderilecek
+        const createdProduct = await createMutation.mutateAsync(createData)
+        return createdProduct
     }
 
-    // Final submit
+    // Final submit - Yeni ürün ekleme durumunda tüm verileri sırayla gönder
+    const handleFinalSubmit = async () => {
+        setIsSubmitting(true)
+        try {
+            if (!product && !createdProductId) {
+                // Yeni ürün ekleme durumunda
+                // Debug: State'leri kontrol et
+                console.log('[ProductForm] Final submit - Gallery state:', galleryState)
+                console.log('[ProductForm] Final submit - Stock state:', stockState)
+
+                // 1. Önce ürünü oluştur
+                const formData = watch()
+                const createdProduct = await handleSaveProduct()
+                const productId = createdProduct.id
+
+                // 2. Tüm step'lerdeki verileri sırayla gönder
+                const markdownDescription = htmlDescription
+                    ? turndownService.turndown(htmlDescription)
+                    : ""
+
+                // Basic info
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        name: formData.name,
+                        subtitle: formData.subtitle || undefined,
+                        description: markdownDescription || formData.description,
+                    },
+                })
+
+                // Pricing
+                const pricingData: any = {
+                    basePrice: formData.basePrice,
+                    isOnSale: formData.isOnSale,
+                    discountedPrice: formData.discountedPrice !== null &&
+                        formData.discountedPrice !== undefined &&
+                        !isNaN(Number(formData.discountedPrice)) &&
+                        Number(formData.discountedPrice) >= 0
+                        ? Number(formData.discountedPrice)
+                        : null,
+                }
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: pricingData,
+                })
+
+                // Categories & Tags
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        categoryIds: formData.categoryIds.length > 0 ? formData.categoryIds : [],
+                        tagIds: formData.tagIds.length > 0 ? formData.tagIds : [],
+                    },
+                })
+
+                // SEO
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        seoTitle: formData.seoTitle || undefined,
+                        seoDescription: formData.seoDescription || undefined,
+                        seoKeywords: formData.seoKeywords
+                            ? formData.seoKeywords.split(",").map((k) => k.trim()).filter(Boolean)
+                            : undefined,
+                    },
+                })
+
+                // Gallery - Eğer resimler seçildiyse kaydet
+                if (galleryState.mainImage || galleryState.thumbnailImage || galleryState.detailImages.length > 0) {
+                    try {
+                        // Main image ve thumbnail zorunlu, eğer yoksa hata göster
+                        if (!galleryState.mainImage || !galleryState.thumbnailImage) {
+                            toast({
+                                title: "Uyarı",
+                                description: "Ana resim ve thumbnail resim zorunludur. Gallery kaydedilmedi.",
+                                variant: "destructive",
+                            })
+                        } else {
+                            await productService.createProductGallery(productId, {
+                                mainImageId: galleryState.mainImage.id,
+                                thumbnailImageId: galleryState.thumbnailImage.id,
+                                detailImageIds: galleryState.detailImages.map((img) => img.id),
+                                displayOrder: 0,
+                            })
+                            toast({
+                                title: "Başarılı",
+                                description: "Ürün galerisi başarıyla kaydedildi.",
+                            })
+                        }
+                    } catch (error: any) {
+                        toast({
+                            title: "Hata",
+                            description: error.response?.data?.message || "Galeri kaydedilirken bir hata oluştu.",
+                            variant: "destructive",
+                        })
+                        console.error("Gallery kaydetme hatası:", error)
+                    }
+                }
+
+                // Stock - Stok verilerini kaydet (sadece SIMPLE ürünler için)
+                if (productType === "SIMPLE") {
+                    try {
+                        // SKU'yu product'a kaydet (eğer girildiyse)
+                        if (stockState.sku && stockState.sku.trim()) {
+                            await updateCategoriesTagsMutation.mutateAsync({
+                                id: productId,
+                                data: {
+                                    sku: stockState.sku.trim() || undefined,
+                                },
+                            })
+                        }
+
+                        // Stock'u kaydet (availableQuantity >= 0 kontrolü ile)
+                        if (stockState.availableQuantity >= 0 || stockState.lowStockThreshold !== null) {
+                            await stockService.updateStock("PRODUCT", productId, {
+                                availableQuantity: stockState.availableQuantity >= 0 ? stockState.availableQuantity : 0,
+                                lowStockThreshold: stockState.lowStockThreshold ?? undefined,
+                            })
+                            toast({
+                                title: "Başarılı",
+                                description: "Stok bilgisi başarıyla kaydedildi.",
+                            })
+                        }
+                    } catch (error: any) {
+                        toast({
+                            title: "Hata",
+                            description: error.response?.data?.message || "Stok bilgisi kaydedilirken bir hata oluştu.",
+                            variant: "destructive",
+                        })
+                        console.error("Stock kaydetme hatası:", error)
+                    }
+                }
+
+                // 3. Başarı mesajı ve yönlendirme
+                toast({
+                    title: "Başarılı",
+                    description: "Ürün başarıyla oluşturuldu.",
+                })
+
+                // Ürün tipine göre doğru tab ile detay sayfasına yönlendir
+                const tab = productType === "VARIANT" ? "variants" : "basic"
+                router.push(`/panel/products/${createdProduct.slug}?tab=${tab}`)
+            } else {
+                // Düzenleme modunda mevcut mantık
+                await onSubmit(watch())
+            }
+        } catch (error: any) {
+            toast({
+                title: "Hata",
+                description: error.response?.data?.message || "İşlem sırasında bir hata oluştu.",
+                variant: "destructive",
+            })
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    // Final submit (düzenleme modu için)
     const onSubmit = async (data: ProductFormValues) => {
         setIsSubmitting(true)
         try {
@@ -610,7 +841,7 @@ export function ProductForm({ product }: ProductFormProps) {
                         control={control}
                         errors={errors}
                         productType={productType}
-                        isEditMode={!!product}
+                        isEditMode={!!product || (currentStep > 0 && !product)}
                     />
                 )
             case "basic":
@@ -665,6 +896,8 @@ export function ProductForm({ product }: ProductFormProps) {
                         productType={productType}
                         variantCombinationId={undefined}
                         onValidationChange={setIsGalleryValid}
+                        onGalleryChange={setGalleryState}
+                        initialGallery={galleryState}
                     />
                 )
             case "stock":
@@ -678,6 +911,8 @@ export function ProductForm({ product }: ProductFormProps) {
                             queryClient.invalidateQueries({ queryKey: ["product", createdProductId || product?.id] })
                             queryClient.invalidateQueries({ queryKey: ["stock"] })
                         }}
+                        onStockChange={setStockState}
+                        initialStock={stockState}
                     />
                 )
             case "summary":
@@ -710,7 +945,7 @@ export function ProductForm({ product }: ProductFormProps) {
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => router.push("/panel/products")}
+                        onClick={() => handleExit(() => router.push("/panel/products"))}
                         className="gap-2"
                     >
                         <ArrowLeft className="w-4 h-4" />
@@ -722,8 +957,17 @@ export function ProductForm({ product }: ProductFormProps) {
                 <Stepper
                     steps={STEPS}
                     currentStep={currentStep}
-                    allowAllSteps={!!product}
+                    allowAllSteps={!!product || (!!productType && !product)}
                     onStepClick={(step) => {
+                        // Type seçilmeden diğer adımlara gidilemesin
+                        if (!product && step > 0 && !productType) {
+                            toast({
+                                title: "Uyarı",
+                                description: "Önce ürün tipini seçmelisiniz.",
+                                variant: "destructive",
+                            })
+                            return
+                        }
                         setCurrentStep(step)
                     }}
                 />
@@ -748,7 +992,7 @@ export function ProductForm({ product }: ProductFormProps) {
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => router.push("/panel/products")}
+                            onClick={() => handleExit(() => router.push("/panel/products"))}
                             disabled={isSubmitting}
                         >
                             İptal
@@ -764,10 +1008,10 @@ export function ProductForm({ product }: ProductFormProps) {
                                 <ChevronRight className="w-4 h-4" />
                             </Button>
                         ) : (
-                            // Son adım (Özet) - Ürün zaten oluşturulmuş, sadece products sayfasına yönlendir
+                            // Son adım (Özet) - Final submit
                             <Button
                                 type="button"
-                                onClick={() => router.push("/panel/products")}
+                                onClick={handleFinalSubmit}
                                 disabled={isSubmitting}
                                 className="gap-2"
                             >

@@ -19,6 +19,16 @@ interface ProductGalleryManagerProps {
   variantCombinationId?: string | null
   onValidationChange?: (isValid: boolean) => void
   onGallerySaved?: () => void
+  onGalleryChange?: (gallery: {
+    mainImage: Upload | null
+    thumbnailImage: Upload | null
+    detailImages: Upload[]
+  }) => void
+  initialGallery?: {
+    mainImage: Upload | null
+    thumbnailImage: Upload | null
+    detailImages: Upload[]
+  }
 }
 
 export function ProductGalleryManager({
@@ -26,19 +36,24 @@ export function ProductGalleryManager({
   variantCombinationId,
   onValidationChange,
   onGallerySaved,
+  onGalleryChange,
+  initialGallery,
 }: ProductGalleryManagerProps) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
   // Seçilen resimler
-  const [mainImage, setMainImage] = useState<Upload | null>(null)
-  const [thumbnailImage, setThumbnailImage] = useState<Upload | null>(null)
-  const [detailImages, setDetailImages] = useState<Upload[]>([])
+  const [mainImage, setMainImage] = useState<Upload | null>(initialGallery?.mainImage || null)
+  const [thumbnailImage, setThumbnailImage] = useState<Upload | null>(initialGallery?.thumbnailImage || null)
+  const [detailImages, setDetailImages] = useState<Upload[]>(initialGallery?.detailImages || [])
 
   // Modal durumları
   const [isMainImageModalOpen, setIsMainImageModalOpen] = useState(false)
   const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false)
   const [isDetailImagesModalOpen, setIsDetailImagesModalOpen] = useState(false)
+
+  // productId yoksa sadece frontend state'inde tut, backend'e kaydetme
+  const isPreviewMode = !productId && !variantCombinationId
 
   // Mevcut gallery'yi getir
   const { data: existingGallery, isLoading: isLoadingGallery } = useQuery({
@@ -55,29 +70,40 @@ export function ProductGalleryManager({
     enabled: !!productId || !!variantCombinationId,
   })
 
-  // Mevcut gallery'den resimleri yükle
+  // Mevcut gallery'den resimleri yükle (sadece productId varsa)
   useEffect(() => {
-    console.log('[ProductGalleryManager] existingGallery changed:', existingGallery);
-    if (existingGallery) {
-      console.log('[ProductGalleryManager] Loading images from existing gallery:', {
-        mainImage: existingGallery.mainImage?.id,
-        thumbnailImage: existingGallery.thumbnailImage?.id,
-        detailImagesCount: existingGallery.detailImages?.length || 0,
-      });
-      setMainImage(existingGallery.mainImage)
-      setThumbnailImage(existingGallery.thumbnailImage)
-      setDetailImages(existingGallery.detailImages || [])
-    } else {
-      // Eğer existingGallery null ise (henüz yüklenmediyse veya yoksa), state'leri sıfırla
-      // Ancak undefined ise (henüz yükleniyor), state'leri değiştirme
-      if (existingGallery === null && !isLoadingGallery) {
-        console.log('[ProductGalleryManager] No existing gallery found, resetting states');
-        setMainImage(null)
-        setThumbnailImage(null)
-        setDetailImages([])
+    if (!isPreviewMode) {
+      console.log('[ProductGalleryManager] existingGallery changed:', existingGallery);
+      if (existingGallery) {
+        console.log('[ProductGalleryManager] Loading images from existing gallery:', {
+          mainImage: existingGallery.mainImage?.id,
+          thumbnailImage: existingGallery.thumbnailImage?.id,
+          detailImagesCount: existingGallery.detailImages?.length || 0,
+        });
+        setMainImage(existingGallery.mainImage)
+        setThumbnailImage(existingGallery.thumbnailImage)
+        setDetailImages(existingGallery.detailImages || [])
+      } else {
+        // Eğer existingGallery null ise (henüz yüklenmediyse veya yoksa), state'leri sıfırla
+        // Ancak undefined ise (henüz yükleniyor), state'leri değiştirme
+        if (existingGallery === null && !isLoadingGallery) {
+          console.log('[ProductGalleryManager] No existing gallery found, resetting states');
+          setMainImage(null)
+          setThumbnailImage(null)
+          setDetailImages([])
+        }
       }
     }
-  }, [existingGallery, isLoadingGallery])
+  }, [existingGallery, isLoadingGallery, isPreviewMode])
+
+  // Initial gallery'den resimleri yükle (preview mode için)
+  useEffect(() => {
+    if (isPreviewMode && initialGallery) {
+      setMainImage(initialGallery.mainImage)
+      setThumbnailImage(initialGallery.thumbnailImage)
+      setDetailImages(initialGallery.detailImages || [])
+    }
+  }, [initialGallery, isPreviewMode])
 
   // Validation durumunu parent'a bildir
   useEffect(() => {
@@ -87,6 +113,17 @@ export function ProductGalleryManager({
       onValidationChange(isValid)
     }
   }, [mainImage, thumbnailImage, onValidationChange])
+
+  // Gallery değişikliklerini parent'a bildir
+  useEffect(() => {
+    if (onGalleryChange) {
+      onGalleryChange({
+        mainImage,
+        thumbnailImage,
+        detailImages,
+      })
+    }
+  }, [mainImage, thumbnailImage, detailImages, onGalleryChange])
 
   // Gallery oluşturma mutation
   const createGalleryMutation = useMutation({
@@ -223,10 +260,10 @@ export function ProductGalleryManager({
   // Otomatik kaydetme için debounce timer
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Resimler değiştiğinde otomatik kaydet (debounce ile)
+  // Resimler değiştiğinde otomatik kaydet (debounce ile) - sadece productId varsa
   useEffect(() => {
-    // Eğer productId veya variantCombinationId yoksa, kaydetme
-    if (!productId && !variantCombinationId) {
+    // Preview mode'da (productId yok) kaydetme
+    if (isPreviewMode) {
       return
     }
 
@@ -314,19 +351,7 @@ export function ProductGalleryManager({
     setDetailImages(detailImages.filter((_, i) => i !== index))
   }
 
-  if (!productId && !variantCombinationId) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            Resim ekleyebilmek için önce ürünü oluşturmanız gerekiyor.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoadingGallery) {
+  if (isLoadingGallery && !isPreviewMode) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

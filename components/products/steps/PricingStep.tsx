@@ -67,77 +67,63 @@ export function PricingStep({
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center space-x-2 pt-6">
-            <input
-              type="checkbox"
-              id="isOnSale"
-              {...register("isOnSale")}
-              className="w-4 h-4 rounded border-border"
-            />
-            <Label htmlFor="isOnSale" className="cursor-pointer">
-              İndirimde
-            </Label>
-          </div>
-
-          {isOnSale && (
-            <div>
-              <Label htmlFor="discountedPrice">İndirimli Fiyat (₺)</Label>
-              <Controller
-                name="discountedPrice"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="discountedPrice"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      if (e.target.value === "") {
-                        field.onChange(undefined)
+          <div>
+            <Label htmlFor="discountedPrice">İndirimli Fiyat (₺)</Label>
+            <Controller
+              name="discountedPrice"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  id="discountedPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) => {
+                    if (e.target.value === "") {
+                      field.onChange(undefined)
+                    } else {
+                      const numValue = parseFloat(e.target.value)
+                      // Geçerli bir sayı ise (NaN değilse ve >= 0)
+                      if (!isNaN(numValue) && numValue >= 0) {
+                        field.onChange(numValue)
                       } else {
-                        const numValue = parseFloat(e.target.value)
-                        // Geçerli bir sayı ise (NaN değilse ve >= 0)
-                        if (!isNaN(numValue) && numValue >= 0) {
-                          field.onChange(numValue)
-                        } else {
-                          // Geçersiz değer ise undefined set et
-                          field.onChange(undefined)
-                        }
+                        // Geçersiz değer ise undefined set et
+                        field.onChange(undefined)
                       }
-                    }}
-                    placeholder="0.00"
-                    className="mt-1"
-                  />
-                )}
-              />
-              {errors.discountedPrice && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.discountedPrice.message}
-                </p>
+                    }
+                  }}
+                  placeholder="0.00"
+                  className="mt-1"
+                />
               )}
-              <p className="text-xs text-muted-foreground mt-1">
-                İndirimli fiyat direkt olarak bu değer kullanılacaktır.
+            />
+            {errors.discountedPrice && (
+              <p className="text-sm text-red-600 mt-1">
+                {errors.discountedPrice.message}
               </p>
-            </div>
-          )}
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              İndirimli fiyat direkt olarak bu değer kullanılacaktır.
+            </p>
+          </div>
         </div>
       </div>
 
       {productType === "VARIANT" && (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Varyant Ürünler:</strong> Her varyant kombinasyonu için ayrı fiyat belirleyebilirsiniz. 
+        <div className="p-4 bg-blue-50  border border-blue-200  rounded-lg">
+          <p className="text-sm text-blue-800 ">
+            <strong>Varyant Ürünler:</strong> Her varyant kombinasyonu için ayrı fiyat belirleyebilirsiniz.
             Bu fiyat, varyant kombinasyonları oluşturulurken override edilebilir.
           </p>
         </div>
       )}
 
       {productType === "BUNDLE" && (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Bundle Ürünler:</strong> Bundle paketinin toplam fiyatını belirleyin. 
+        <div className="p-4 bg-blue-50  border border-blue-200  rounded-lg">
+          <p className="text-sm text-blue-800 ">
+            <strong>Bundle Ürünler:</strong> Bundle paketinin toplam fiyatını belirleyin.
             Bundle içindeki ürünlerin fiyatları ayrı ayrı yönetilir.
           </p>
         </div>

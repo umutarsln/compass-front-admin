@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { productService, Product, ProductType, GetProductsParams } from "@/services/product.service"
 import { useToast } from "@/components/ui/use-toast"
 import { categoryService, Category } from "@/services/category.service"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus, Edit, Trash2 } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus, Edit, Trash2, Columns, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -15,16 +15,85 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 type SortField = "name" | "basePrice" | "createdAt" | "isActive" | "isFeatured" | null
 type SortOrder = "asc" | "desc"
 
 const ITEMS_PER_PAGE = 10
 
+// Sütun tanımları
+type ColumnConfig = {
+  id: string
+  label: string
+  sortable: boolean
+  defaultVisible: boolean
+  width?: string
+  sortField?: SortField
+}
+
+const COLUMN_DEFINITIONS: ColumnConfig[] = [
+  { id: 'name', label: 'Ürün Adı', sortable: true, defaultVisible: true, sortField: 'name' },
+  { id: 'type', label: 'Tip', sortable: false, defaultVisible: false },
+  { id: 'sku', label: 'SKU', sortable: false, defaultVisible: false },
+  { id: 'price', label: 'Fiyat', sortable: true, defaultVisible: true, sortField: 'basePrice' },
+  { id: 'categories', label: 'Kategoriler', sortable: false, defaultVisible: false },
+  { id: 'tags', label: 'Etiketler', sortable: false, defaultVisible: false },
+  { id: 'status', label: 'Durum', sortable: true, defaultVisible: true, sortField: 'isActive' },
+  { id: 'createdAt', label: 'Oluşturulma', sortable: true, defaultVisible: false, sortField: 'createdAt' },
+  { id: 'actions', label: 'İşlemler', sortable: false, defaultVisible: true },
+]
+
+const DEFAULT_VISIBLE_COLUMNS = COLUMN_DEFINITIONS
+  .filter(col => col.defaultVisible)
+  .map(col => col.id)
+
+// localStorage hook
+const useColumnVisibility = () => {
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return DEFAULT_VISIBLE_COLUMNS
+    const stored = localStorage.getItem('productListColumns')
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        return parsed.visibleColumns || DEFAULT_VISIBLE_COLUMNS
+      } catch {
+        return DEFAULT_VISIBLE_COLUMNS
+      }
+    }
+    return DEFAULT_VISIBLE_COLUMNS
+  })
+
+  const updateVisibleColumns = (columns: string[]) => {
+    setVisibleColumns(columns)
+    localStorage.setItem('productListColumns', JSON.stringify({ visibleColumns: columns }))
+  }
+
+  return { visibleColumns, updateVisibleColumns }
+}
+
 export function ProductList() {
   const router = useRouter()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const { visibleColumns, updateVisibleColumns } = useColumnVisibility()
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<ProductType | "all">("all")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
@@ -161,12 +230,12 @@ export function ProductList() {
 
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+      return <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground opacity-50" />
     }
     return sortOrder === "asc" ? (
-      <ArrowUp className="w-4 h-4 text-primary" />
+      <ArrowUp className="w-3.5 h-3.5 text-primary" />
     ) : (
-      <ArrowDown className="w-4 h-4 text-primary" />
+      <ArrowDown className="w-3.5 h-3.5 text-primary" />
     )
   }
 
@@ -204,6 +273,30 @@ export function ProductList() {
     setSearchQuery("")
   }
 
+  // Sütun görünürlüğü yönetimi
+  const toggleColumn = (columnId: string) => {
+    if (columnId === 'actions') return // İşlemler sütunu her zaman görünür olmalı
+    const newVisibleColumns = visibleColumns.includes(columnId)
+      ? visibleColumns.filter(id => id !== columnId)
+      : [...visibleColumns, columnId]
+    updateVisibleColumns(newVisibleColumns)
+  }
+
+  const selectAllColumns = () => {
+    updateVisibleColumns(COLUMN_DEFINITIONS.map(col => col.id))
+  }
+
+  const deselectAllColumns = () => {
+    updateVisibleColumns(['actions']) // Sadece işlemler sütunu kalır
+  }
+
+  const resetToDefault = () => {
+    updateVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
+  }
+
+  // Görünür sütunları filtrele
+  const visibleColumnDefinitions = COLUMN_DEFINITIONS.filter(col => visibleColumns.includes(col.id))
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -213,65 +306,146 @@ export function ProductList() {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card shadow-sm">
+    <div className="rounded-lg border border-border bg-card">
       {/* Filters & Search Bar */}
-      <div className="border-b border-border px-6 py-4 space-y-4">
+      <div className="border-b border-border p-4 space-y-3">
         {/* Search & Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Ürün ara (isim, SKU, slug)..."
-              className="w-full h-12 pl-10 pr-4 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              placeholder="Ürün ara..."
+              className="w-full h-10 pl-9 pr-4 rounded-md border border-border bg-background text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
+          
+          {/* Aktif Filtreler */}
           {hasActiveFilters && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearFilters}
-              className="gap-2"
-            >
-              <X className="w-4 h-4" />
-              Filtreleri Temizle
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {typeFilter !== "all" && (
+                <Badge variant="secondary" className="gap-1">
+                  Tip: {getTypeLabel(typeFilter)}
+                  <button
+                    onClick={() => setTypeFilter("all")}
+                    className="ml-1 hover:bg-muted rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+              {categoryFilter !== "all" && (
+                <Badge variant="secondary" className="gap-1">
+                  Kategori: {categories?.find(c => c.id === categoryFilter)?.name || categoryFilter}
+                  <button
+                    onClick={() => setCategoryFilter("all")}
+                    className="ml-1 hover:bg-muted rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+              {searchQuery && (
+                <Badge variant="secondary" className="gap-1">
+                  Arama: {searchQuery}
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="ml-1 hover:bg-muted rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <X className="w-3 h-3" />
+                Temizle
+              </Button>
+            </div>
           )}
-          <Button
-            onClick={() => router.push("/panel/products/new")}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Yeni Ürün
-          </Button>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 h-9">
+                  <Columns className="w-4 h-4" />
+                  Sütunlar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Sütunları Seç</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {COLUMN_DEFINITIONS.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={visibleColumns.includes(column.id)}
+                    onCheckedChange={() => toggleColumn(column.id)}
+                    disabled={column.id === 'actions'}
+                  >
+                    {column.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={selectAllColumns}
+                  className="text-xs"
+                >
+                  Tümünü Seç
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={deselectAllColumns}
+                  className="text-xs"
+                >
+                  Tümünü Kaldır
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={resetToDefault}
+                  className="text-xs"
+                >
+                  Varsayılana Dön
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              onClick={() => router.push("/panel/products/new")}
+              size="sm"
+              className="gap-2 h-9"
+            >
+              <Plus className="w-4 h-4" />
+              Yeni Ürün
+            </Button>
+          </div>
         </div>
 
         {/* Filter Row */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Filtreler:</span>
+            <span className="text-xs font-medium text-muted-foreground">Filtreler:</span>
           </div>
           
           {/* Type Filter */}
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProductType | "all")}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-[140px] h-9 text-sm">
               <SelectValue placeholder="Ürün Tipi" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Tipler</SelectItem>
               <SelectItem value="SIMPLE">Basit</SelectItem>
               <SelectItem value="VARIANT">Varyant</SelectItem>
-              {/* BUNDLE seçeneği şimdilik kaldırıldı */}
-              {/* <SelectItem value="BUNDLE">Paket</SelectItem> */}
             </SelectContent>
           </Select>
 
           {/* Category Filter */}
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[180px] h-9 text-sm">
               <SelectValue placeholder="Kategori" />
             </SelectTrigger>
             <SelectContent>
@@ -287,252 +461,252 @@ export function ProductList() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-muted">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort("name")}
-                  className="flex items-center gap-2 hover:text-foreground transition-colors"
-                >
-                  Ürün Adı
-                  {getSortIcon("name")}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Tip
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                SKU
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort("basePrice")}
-                  className="flex items-center gap-2 hover:text-foreground transition-colors"
-                >
-                  Fiyat
-                  {getSortIcon("basePrice")}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Kategoriler
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Etiketler
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort("isActive")}
-                  className="flex items-center gap-2 hover:text-foreground transition-colors"
-                >
-                  Durum
-                  {getSortIcon("isActive")}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <button
-                  onClick={() => handleSort("createdAt")}
-                  className="flex items-center gap-2 hover:text-foreground transition-colors"
-                >
-                  Oluşturulma
-                  {getSortIcon("createdAt")}
-                </button>
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                İşlemler
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {paginatedProducts && paginatedProducts.length > 0 ? (
-              paginatedProducts.map((product) => (
-                <tr
-                  key={product.id}
-                  className="hover:bg-muted/50 transition-colors duration-150"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <div className="text-sm font-medium text-foreground">
-                        {product.name}
-                      </div>
-                      {product.subtitle && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {product.subtitle}
-                        </div>
-                      )}
-                      {product.slug && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          /{product.slug}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(
-                        product.type
-                      )}`}
-                    >
-                      {getTypeLabel(product.type)}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {visibleColumnDefinitions.map((column) => (
+              <TableHead
+                key={column.id}
+                className={column.id === 'actions' ? 'text-right' : 'text-left'}
+                style={{ width: column.width }}
+              >
+                {column.sortable && column.sortField ? (
+                  <button
+                    onClick={() => handleSort(column.sortField!)}
+                    className="flex items-center gap-2 hover:text-foreground transition-colors w-full text-left group"
+                  >
+                    <span className="font-medium text-xs uppercase tracking-wider">{column.label}</span>
+                    <span className="ml-auto">
+                      {getSortIcon(column.sortField)}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-muted-foreground font-mono">
-                      {product.sku || "-"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      {product.isOnSale && product.discountedPrice ? (
-                        <>
-                          <div className="text-sm font-medium text-foreground">
-                            ₺{calculateFinalPrice(product).toFixed(2)}
+                  </button>
+                ) : (
+                  <span className="font-medium text-xs uppercase tracking-wider">{column.label}</span>
+                )}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {paginatedProducts && paginatedProducts.length > 0 ? (
+            paginatedProducts.map((product) => (
+              <TableRow key={product.id}>
+                {visibleColumnDefinitions.map((column) => {
+                  switch (column.id) {
+                    case 'name':
+                      return (
+                        <TableCell key={column.id}>
+                          <div className="flex flex-col gap-1">
+                            <div className="font-medium text-foreground">
+                              {product.name}
+                            </div>
+                            {product.subtitle && (
+                              <div className="text-xs text-muted-foreground">
+                                {product.subtitle}
+                              </div>
+                            )}
+                            {product.slug && (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                /{product.slug}
+                              </div>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground line-through">
-                            ₺{Number(product.basePrice).toFixed(2)}
-                          </div>
-                          <div className="text-xs text-green-600 dark:text-green-400">
-                            İndirimli
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-sm font-medium text-foreground">
-                          ₺{Number(product.basePrice).toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {product.categories && product.categories.length > 0 ? (
-                        product.categories.slice(0, 2).map((category: any) => (
-                          <span
-                            key={category.id}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground"
+                        </TableCell>
+                      )
+                    case 'type':
+                      return (
+                        <TableCell key={column.id} className="whitespace-nowrap">
+                          <Badge
+                            variant="secondary"
+                            className={getTypeColor(product.type)}
                           >
-                            {category.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                      {product.categories && product.categories.length > 2 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{product.categories.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {product.tags && product.tags.length > 0 ? (
-                        product.tags.slice(0, 2).map((tag: any) => (
-                          <span
-                            key={tag.id}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs"
-                            style={{
-                              backgroundColor: `${tag.color}20`,
-                              color: tag.color,
-                            }}
-                          >
-                            {tag.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                      {product.tags && product.tags.length > 2 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{product.tags.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col gap-1">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${product.isActive
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
-                      >
-                        {product.isActive ? "Aktif" : "Pasif"}
-                      </span>
-                      {product.isFeatured && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                          Öne Çıkan
-                        </span>
-                      )}
-                      {product.isOnSale && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                          İndirimde
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(product.createdAt).toLocaleDateString("tr-TR", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(product)}
-                        disabled={deletingProductId === product.id}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Düzenle
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        onClick={() => handleDelete(product)}
-                        disabled={deletingProductId === product.id || deleteMutation.isPending}
-                      >
-                        {deletingProductId === product.id ? (
-                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4 mr-1" />
-                        )}
-                        Sil
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={9} className="px-6 py-12 text-center">
-                  <div className="text-sm text-muted-foreground">
-                    {hasActiveFilters
-                      ? "Arama kriterlerine uygun ürün bulunamadı."
-                      : "Henüz ürün bulunmuyor."}
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                            {getTypeLabel(product.type)}
+                          </Badge>
+                        </TableCell>
+                      )
+                    case 'sku':
+                      return (
+                        <TableCell key={column.id} className="whitespace-nowrap">
+                          <div className="text-sm text-muted-foreground font-mono">
+                            {product.sku || "-"}
+                          </div>
+                        </TableCell>
+                      )
+                    case 'price':
+                      return (
+                        <TableCell key={column.id} className="whitespace-nowrap">
+                          <div className="flex flex-col gap-0.5">
+                            {product.isOnSale && product.discountedPrice ? (
+                              <>
+                                <div className="font-semibold text-foreground">
+                                  ₺{calculateFinalPrice(product).toFixed(2)}
+                                </div>
+                                <div className="text-xs text-muted-foreground line-through">
+                                  ₺{Number(product.basePrice).toFixed(2)}
+                                </div>
+                                <Badge variant="outline" className="w-fit text-xs mt-0.5 border-green-500 text-green-700 dark:text-green-400">
+                                  İndirimli
+                                </Badge>
+                              </>
+                            ) : (
+                              <div className="font-semibold text-foreground">
+                                ₺{Number(product.basePrice).toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      )
+                    case 'categories':
+                      return (
+                        <TableCell key={column.id}>
+                          <div className="flex flex-wrap gap-1">
+                            {product.categories && product.categories.length > 0 ? (
+                              <>
+                                {product.categories.slice(0, 2).map((category: any) => (
+                                  <Badge key={category.id} variant="secondary" className="text-xs">
+                                    {category.name}
+                                  </Badge>
+                                ))}
+                                {product.categories.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{product.categories.length - 2}
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      )
+                    case 'tags':
+                      return (
+                        <TableCell key={column.id}>
+                          <div className="flex flex-wrap gap-1">
+                            {product.tags && product.tags.length > 0 ? (
+                              <>
+                                {product.tags.slice(0, 2).map((tag: any) => (
+                                  <Badge
+                                    key={tag.id}
+                                    variant="outline"
+                                    className="text-xs"
+                                    style={{
+                                      borderColor: tag.color,
+                                      color: tag.color,
+                                    }}
+                                  >
+                                    {tag.name}
+                                  </Badge>
+                                ))}
+                                {product.tags.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{product.tags.length - 2}
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      )
+                    case 'status':
+                      return (
+                        <TableCell key={column.id} className="whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant={product.isActive ? "default" : "destructive"}
+                              className="w-fit text-xs"
+                            >
+                              {product.isActive ? "Aktif" : "Pasif"}
+                            </Badge>
+                            {product.isFeatured && (
+                              <Badge variant="outline" className="w-fit text-xs border-yellow-500 text-yellow-700 dark:text-yellow-400">
+                                Öne Çıkan
+                              </Badge>
+                            )}
+                            {product.isOnSale && (
+                              <Badge variant="outline" className="w-fit text-xs border-orange-500 text-orange-700 dark:text-orange-400">
+                                İndirimde
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      )
+                    case 'createdAt':
+                      return (
+                        <TableCell key={column.id} className="whitespace-nowrap">
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(product.createdAt).toLocaleDateString("tr-TR", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </div>
+                        </TableCell>
+                      )
+                    case 'actions':
+                      return (
+                        <TableCell key={column.id} className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(product)}
+                              disabled={deletingProductId === product.id}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Düzenle
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              onClick={() => handleDelete(product)}
+                              disabled={deletingProductId === product.id || deleteMutation.isPending}
+                            >
+                              {deletingProductId === product.id ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 mr-1" />
+                              )}
+                              Sil
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )
+                    default:
+                      return null
+                  }
+                })}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={visibleColumnDefinitions.length} className="text-center py-12">
+                <div className="text-sm text-muted-foreground">
+                  {hasActiveFilters
+                    ? "Arama kriterlerine uygun ürün bulunamadı."
+                    : "Henüz ürün bulunmuyor."}
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
 
       {/* Footer Info & Pagination */}
-      <div className="border-t border-border px-6 py-4 bg-muted/30">
+      <div className="border-t border-border px-4 py-3 bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
             {filteredProducts.length > 0 ? (
               <>
-                {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} / {filteredProducts.length} ürün gösteriliyor
+                <span className="font-medium text-foreground">{startIndex + 1}-{Math.min(endIndex, filteredProducts.length)}</span>
+                <span className="mx-1">/</span>
+                <span className="font-medium text-foreground">{filteredProducts.length}</span>
+                <span className="ml-1">ürün</span>
                 {products && products.length !== filteredProducts.length && (
-                  <span className="ml-2">
+                  <span className="ml-2 text-muted-foreground">
                     ({products.length} üründen filtrelenmiş)
                   </span>
                 )}

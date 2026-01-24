@@ -16,10 +16,12 @@ export function Header({ title }: HeaderProps) {
   const getPageTitle = () => {
     if (title) return title
 
+    // Exact match'ler için pathMap
     const pathMap: Record<string, string> = {
       "/panel/dashboard": "Ana Sayfa",
       "/panel/orders": "Siparişler",
       "/panel/products": "Ürünler",
+      "/panel/products/new": "Ürün Ekle",
       "/panel/customers": "Müşteriler",
       "/panel/admins": "Adminler",
       "/panel/media": "Medya",
@@ -28,7 +30,30 @@ export function Header({ title }: HeaderProps) {
       "/panel/settings": "Ayarlar",
     }
 
-    return pathMap[pathname] || "Ana Sayfa"
+    // Önce exact match kontrolü
+    if (pathname && pathMap[pathname]) {
+      return pathMap[pathname]
+    }
+
+    // Dinamik route'lar için pattern matching
+    if (pathname) {
+      // Ürün düzenleme sayfası: /panel/products/[slug]
+      if (pathname.startsWith("/panel/products/") && pathname !== "/panel/products/new") {
+        return "Ürün Düzenle"
+      }
+      
+      // Sipariş detay sayfası: /panel/orders/[id]
+      if (pathname.startsWith("/panel/orders/") && pathname !== "/panel/orders") {
+        return "Sipariş Detayı"
+      }
+      
+      // Dokümantasyon detay sayfası: /panel/docs/[module]
+      if (pathname.startsWith("/panel/docs/") && pathname !== "/panel/docs") {
+        return "Dokümantasyon"
+      }
+    }
+
+    return "Ana Sayfa"
   }
 
   return (

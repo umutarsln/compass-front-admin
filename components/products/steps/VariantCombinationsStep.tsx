@@ -55,7 +55,7 @@ export function VariantCombinationsStep({
   const [sku, setSku] = useState("")
   const [isActive, setIsActive] = useState(true)
   const [isDisabled, setIsDisabled] = useState(false)
-  
+
   // Stock dialog states
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false)
   const [selectedCombinationForStock, setSelectedCombinationForStock] = useState<VariantCombination | null>(null)
@@ -553,7 +553,7 @@ export function VariantCombinationsStep({
               <ProductGalleryManager
                 productId={null}
                 variantCombinationId={selectedCombinationId}
-                onValidationChange={() => {}}
+                onValidationChange={() => { }}
                 onGallerySaved={() => {
                   // Varyasyon kombinasyonlarını yeniden yükle
                   queryClient.invalidateQueries({ queryKey: ["variantCombinations", productId] })
