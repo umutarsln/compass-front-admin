@@ -384,6 +384,12 @@ export default function PersonalizationFormDetailPage() {
     }
   }
 
+  const handleCancelFieldDialog = () => {
+    setIsFieldDialogOpen(false)
+    setEditingFieldId(null)
+    fieldForm.reset()
+  }
+
   // Redirect if id is "new"
   if (formId === "new") {
     router.replace("/panel/personalization/forms/new")
@@ -890,7 +896,7 @@ export default function PersonalizationFormDetailPage() {
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={handleCloseFieldDialog}
+                            onClick={handleCancelFieldDialog}
                           >
                             İptal
                           </Button>
