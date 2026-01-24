@@ -376,10 +376,12 @@ export default function PersonalizationFormDetailPage() {
     setIsFieldDialogOpen(true)
   }
 
-  const handleCloseFieldDialog = () => {
-    setIsFieldDialogOpen(false)
-    setEditingFieldId(null)
-    fieldForm.reset()
+  const handleCloseFieldDialog = (open: boolean) => {
+    if (!open) {
+      setIsFieldDialogOpen(false)
+      setEditingFieldId(null)
+      fieldForm.reset()
+    }
   }
 
   // Redirect if id is "new"
@@ -481,12 +483,29 @@ export default function PersonalizationFormDetailPage() {
                     </CardDescription>
                   </div>
                   <Dialog open={isFieldDialogOpen} onOpenChange={handleCloseFieldDialog}>
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Alan Ekle
-                      </Button>
-                    </DialogTrigger>
+                    <Button 
+                      size="sm"
+                      onClick={() => {
+                        setEditingFieldId(null)
+                        fieldForm.reset({
+                          formId: formId,
+                          key: "",
+                          title: "",
+                          subtitle: "",
+                          helperText: "",
+                          required: false,
+                          type: "TEXT",
+                          orderIndex: (form?.fields?.length || 0) + 1,
+                          config: {},
+                          validationRules: {},
+                          pricingRules: {},
+                        })
+                        setIsFieldDialogOpen(true)
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Alan Ekle
+                    </Button>
                     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>
@@ -797,45 +816,45 @@ export default function PersonalizationFormDetailPage() {
                               </div>
                               {(selectedFieldType === "FILE_UPLOAD_MULTI" ||
                                 selectedFieldType === "IMAGE_PICKER_MULTI") && (
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label htmlFor="config-minFileCount" className="text-xs">
-                                      Minimum Dosya Sayısı
-                                    </Label>
-                                    <Input
-                                      id="config-minFileCount"
-                                      type="number"
-                                      {...fieldForm.register("config.minFileCount", {
-                                        valueAsNumber: true,
-                                      })}
-                                      placeholder="1"
-                                      min="0"
-                                      className="mt-1"
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      En az kaç dosya seçilmeli
-                                    </p>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="config-minFileCount" className="text-xs">
+                                        Minimum Dosya Sayısı
+                                      </Label>
+                                      <Input
+                                        id="config-minFileCount"
+                                        type="number"
+                                        {...fieldForm.register("config.minFileCount", {
+                                          valueAsNumber: true,
+                                        })}
+                                        placeholder="1"
+                                        min="0"
+                                        className="mt-1"
+                                      />
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        En az kaç dosya seçilmeli
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="config-maxFileCount" className="text-xs">
+                                        Maksimum Dosya Sayısı
+                                      </Label>
+                                      <Input
+                                        id="config-maxFileCount"
+                                        type="number"
+                                        {...fieldForm.register("config.maxFileCount", {
+                                          valueAsNumber: true,
+                                        })}
+                                        placeholder="10"
+                                        min="1"
+                                        className="mt-1"
+                                      />
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        En fazla kaç dosya seçilebilir
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <Label htmlFor="config-maxFileCount" className="text-xs">
-                                      Maksimum Dosya Sayısı
-                                    </Label>
-                                    <Input
-                                      id="config-maxFileCount"
-                                      type="number"
-                                      {...fieldForm.register("config.maxFileCount", {
-                                        valueAsNumber: true,
-                                      })}
-                                      placeholder="10"
-                                      min="1"
-                                      className="mt-1"
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      En fazla kaç dosya seçilebilir
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
+                                )}
                             </div>
                           )}
 
@@ -977,7 +996,7 @@ export default function PersonalizationFormDetailPage() {
                         {/* Eğer Kısmı */}
                         <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
                           <Label className="text-sm font-semibold">Eğer (Koşul)</Label>
-                          
+
                           <div>
                             <Label htmlFor="condition-field" className="text-xs">
                               Alan <span className="text-red-500">*</span>
@@ -1070,7 +1089,7 @@ export default function PersonalizationFormDetailPage() {
                         {/* O zaman Kısmı */}
                         <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
                           <Label className="text-sm font-semibold">O zaman (Aksiyon)</Label>
-                          
+
                           <div>
                             <Label htmlFor="condition-action" className="text-xs">
                               Aksiyon <span className="text-red-500">*</span>
@@ -1196,8 +1215,8 @@ export default function PersonalizationFormDetailPage() {
                                 const value = condition.ifJson?.operator === "filled"
                                   ? ""
                                   : Array.isArray(condition.ifJson?.value)
-                                  ? condition.ifJson.value.join(", ")
-                                  : condition.ifJson?.value
+                                    ? condition.ifJson.value.join(", ")
+                                    : condition.ifJson?.value
                                 return `${fieldName} ${operator}${value ? ` "${value}"` : ""}`
                               })()}
                             </span>
