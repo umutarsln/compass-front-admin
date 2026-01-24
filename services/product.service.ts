@@ -48,6 +48,7 @@ export interface Product {
     tags: any[]
     galleries?: ProductGallery[]
     createdBy: any
+    personalizationFormId?: string | null
     createdAt: string
     updatedAt: string
 }
@@ -68,6 +69,7 @@ export interface CreateProductDto {
     seoKeywords?: string[]
     categoryIds?: string[]
     tagIds?: string[]
+    personalizationFormId?: string | null
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> { }

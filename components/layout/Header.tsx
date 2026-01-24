@@ -1,16 +1,41 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Bell } from "lucide-react"
+import { Search, Bell, ArrowLeft } from "lucide-react"
 import { usePathname } from "next/navigation"
+import Link from "next/link"
 
 interface HeaderProps {
   title?: string
+  hideSidebar?: boolean
 }
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, hideSidebar = false }: HeaderProps) {
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Back URL'i belirle
+  const getBackUrl = () => {
+    if (!pathname) return "/panel/products"
+
+    // Ürün ekleme sayfasından ürünler listesine dön
+    if (pathname === "/panel/products/new") {
+      return "/panel/products"
+    }
+
+    // Ürün düzenleme sayfasından ürünler listesine dön
+    if (pathname.startsWith("/panel/products/") && pathname !== "/panel/products") {
+      return "/panel/products"
+    }
+
+    // Kişiselleştirme form detay sayfasından formlar listesine dön
+    if (pathname.startsWith("/panel/personalization/forms/") && pathname !== "/panel/personalization/forms") {
+      return "/panel/personalization/forms"
+    }
+
+    // Varsayılan olarak dashboard'a dön
+    return "/panel/dashboard"
+  }
 
   // Pathname'e göre başlık belirle
   const getPageTitle = () => {
@@ -59,6 +84,14 @@ export function Header({ title }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-8 sticky top-0 z-10">
       <div className="flex items-center gap-4">
+        {hideSidebar && (
+          <Link
+            href={getBackUrl()}
+            className="flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+        )}
         <h2 className="text-lg font-bold leading-tight text-foreground">
           {getPageTitle()}
         </h2>

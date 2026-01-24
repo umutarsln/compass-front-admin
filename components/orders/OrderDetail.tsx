@@ -14,6 +14,7 @@ import { format } from "date-fns"
 import { tr } from "date-fns/locale"
 import Image from "next/image"
 import Link from "next/link"
+import { PersonalizationSummary } from "@/components/personalization/PersonalizationSummary"
 
 const statusColors: Record<OrderStatus, string> = {
   [OrderStatus.PENDING]: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
@@ -204,6 +205,15 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
                               <div className="text-xs text-muted-foreground mt-1">
                                 Ürün ID: {item.productId.slice(0, 8)}...
                               </div>
+                              {/* Personalization Summary */}
+                              {item.personalization && (
+                                <div className="mt-3">
+                                  <PersonalizationSummary
+                                    personalization={item.personalization}
+                                    readOnly
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         </TableCell>

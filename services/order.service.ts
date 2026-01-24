@@ -45,6 +45,7 @@ export interface OrderItem {
             } | null
         }>
     } | null
+    personalization?: any | null
 }
 
 export interface Order {

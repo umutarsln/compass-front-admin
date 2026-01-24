@@ -14,6 +14,7 @@ import {
   Shield,
   Image,
   BookOpen,
+  FileText,
 } from "lucide-react"
 
 interface NavItem {
@@ -57,6 +58,11 @@ const navItems: NavItem[] = [
     label: "Medya",
     icon: Image,
     path: "/panel/media",
+  },
+  {
+    label: "Kişiselleştirme",
+    icon: FileText,
+    path: "/panel/personalization/forms",
   },
   {
     label: "Dokümantasyon",

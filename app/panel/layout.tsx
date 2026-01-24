@@ -25,7 +25,7 @@ export default function PanelLayout({
                 {/* Main Content Area */}
                 <main className="flex flex-1 flex-col overflow-y-auto bg-background">
                     {/* Header - Ürün ekleme/düzenleme sayfalarında gizli */}
-                    <Header />
+                    <Header hideSidebar={hideSidebar} />
 
                     {/* Page Content */}
                     {children}

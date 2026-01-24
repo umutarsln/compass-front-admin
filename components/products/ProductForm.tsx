@@ -33,6 +33,8 @@ import { StockStep } from "./steps/StockStep"
 import { SummaryStep } from "./steps/SummaryStep"
 import { VariantsStep } from "./steps/VariantsStep"
 import { VariantCombinationsStep } from "./steps/VariantCombinationsStep"
+import { PersonalizationStep } from "./steps/PersonalizationStep"
+import { personalizationService } from "@/services/personalization.service"
 
 const productSchema = z.object({
     type: z.enum(["SIMPLE", "VARIANT", "BUNDLE"]),
@@ -50,6 +52,7 @@ const productSchema = z.object({
     seoKeywords: z.string().optional(),
     categoryIds: z.array(z.string()).default([]),
     tagIds: z.array(z.string()).default([]),
+    personalizationFormId: z.string().uuid().optional().nullable(),
 }).refine(
     (data) => {
         // Eğer isOnSale true ise discountedPrice olmalı
@@ -108,6 +111,12 @@ const ALL_STEPS = {
         description: "Kategorileri ve tag'leri seçin",
         applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
     },
+    personalization: {
+        id: "personalization",
+        title: "Kişiselleştirme",
+        description: "Kişiselleştirme formunu seçin",
+        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
+    },
     seo: {
         id: "seo",
         title: "SEO Ayarları",
@@ -150,6 +159,7 @@ const getStepsForProductType = (productType: ProductType | undefined) => {
         "variantCombinations",
         "pricing",
         "categories",
+        "personalization",
         "seo",
         "gallery",
         "stock",
@@ -223,6 +233,11 @@ export function ProductForm({ product }: ProductFormProps) {
         queryFn: () => tagService.getAll(),
     })
 
+    const { data: personalizationForms = [] } = useQuery({
+        queryKey: ["personalization-forms"],
+        queryFn: () => personalizationService.getForms(),
+    })
+
     const {
         register,
         handleSubmit,
@@ -250,6 +265,7 @@ export function ProductForm({ product }: ProductFormProps) {
             seoKeywords: "",
             categoryIds: [],
             tagIds: [],
+            personalizationFormId: null,
         },
         mode: "onChange",
     })
@@ -354,6 +370,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 seoKeywords: product.seoKeywords?.join(", ") || "",
                 categoryIds: product.categories?.map((c) => c.id) || [],
                 tagIds: product.tags?.map((t) => t.id) || [],
+                personalizationFormId: (product as any).personalizationFormId || null,
             })
             setCreatedProductId(product.id)
 
@@ -559,6 +576,16 @@ export function ProductForm({ product }: ProductFormProps) {
                 })
             }
 
+            // Kişiselleştirme adımından sonra, ürünü güncelle
+            if (currentStepData.id === "personalization" && productId) {
+                await updateCategoriesTagsMutation.mutateAsync({
+                    id: productId,
+                    data: {
+                        personalizationFormId: formData.personalizationFormId || null,
+                    },
+                })
+            }
+
             setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
         }
     }
@@ -585,6 +612,7 @@ export function ProductForm({ product }: ProductFormProps) {
             isActive: formData.isActive,
             isFeatured: formData.isFeatured,
             isOnSale: formData.isOnSale,
+            personalizationFormId: formData.personalizationFormId || undefined,
         }
 
         // discountedPrice: Geçerli bir değer varsa gönder, yoksa null gönder
@@ -630,6 +658,7 @@ export function ProductForm({ product }: ProductFormProps) {
                         name: formData.name,
                         subtitle: formData.subtitle || undefined,
                         description: markdownDescription || formData.description,
+                        personalizationFormId: formData.personalizationFormId || null,
                     },
                 })
 
@@ -780,6 +809,7 @@ export function ProductForm({ product }: ProductFormProps) {
                     isActive: data.isActive,
                     isFeatured: data.isFeatured,
                     isOnSale: data.isOnSale,
+                    personalizationFormId: data.personalizationFormId || null,
                 }
 
                 // discountedPrice: Geçerli bir değer varsa gönder, yoksa null gönder
@@ -852,6 +882,14 @@ export function ProductForm({ product }: ProductFormProps) {
                         errors={errors}
                         htmlDescription={htmlDescription}
                         setHtmlDescription={setHtmlDescription}
+                    />
+                )
+            case "personalization":
+                return (
+                    <PersonalizationStep
+                        control={control}
+                        errors={errors}
+                        personalizationForms={personalizationForms}
                     />
                 )
             case "variants":
