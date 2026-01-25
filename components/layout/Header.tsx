@@ -1,9 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Bell, ArrowLeft } from "lucide-react"
+import { Search, Bell, ArrowLeft, Trash2 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { useAuth } from "@/hooks/useAuth"
+import { storeService } from "@/services/store.service"
+import { useToast } from "@/components/ui/use-toast"
 
 interface HeaderProps {
   title?: string
@@ -13,6 +16,9 @@ interface HeaderProps {
 export function Header({ title, hideSidebar = false }: HeaderProps) {
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
+  const [isClearingCache, setIsClearingCache] = useState(false)
+  const { isAdmin } = useAuth()
+  const { toast } = useToast()
 
   // Back URL'i belirle
   const getBackUrl = () => {
@@ -81,6 +87,37 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
     return "Ana Sayfa"
   }
 
+  // Cache temizleme fonksiyonu
+  const handleClearCache = async () => {
+    if (!isAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Yetkisiz İşlem",
+        description: "Bu işlem için admin yetkisi gereklidir.",
+      })
+      return
+    }
+
+    setIsClearingCache(true)
+    try {
+      await storeService.clearCache()
+      toast({
+        variant: "success",
+        title: "Cache Temizlendi",
+        description: "Store modülü cache'i başarıyla temizlendi.",
+      })
+    } catch (error: any) {
+      console.error("Cache temizleme hatası:", error)
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error?.response?.data?.message || "Cache temizlenirken bir hata oluştu.",
+      })
+    } finally {
+      setIsClearingCache(false)
+    }
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-8 sticky top-0 z-10">
       <div className="flex items-center gap-4">
@@ -108,6 +145,19 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
             className="ml-2 w-full bg-transparent text-sm font-normal text-foreground placeholder-muted-foreground focus:outline-none border-none focus:ring-0 p-0 transition-colors duration-200"
           />
         </div>
+
+        {/* Cache Clear Button (Admin Only) */}
+        {isAdmin && (
+          <button
+            onClick={handleClearCache}
+            disabled={isClearingCache}
+            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-hover hover:text-foreground transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Store Cache'ini Temizle"
+          >
+            <Trash2 className={`w-4 h-4 ${isClearingCache ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Cache Temizle</span>
+          </button>
+        )}
 
         {/* Notifications */}
         <button className="relative flex items-center justify-center rounded-full text-muted-foreground hover:bg-hover hover:text-foreground transition-all duration-200 p-2 hover:scale-110 active:scale-95 group">

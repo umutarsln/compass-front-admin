@@ -129,6 +129,14 @@ export class StoreService {
     const response: AxiosResponse<StoreTag[]> = await api.get("/store/tags")
     return response.data
   }
+
+  /**
+   * Store modülü cache'ini temizle (sadece admin)
+   */
+  async clearCache(): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await api.delete("/store/cache")
+    return response.data
+  }
 }
 
 export interface StoreTag {
