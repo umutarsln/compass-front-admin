@@ -9,7 +9,6 @@ interface PricingStepProps {
   control: any
   register: any
   errors: any
-  isOnSale: boolean
   productType?: ProductType
 }
 
@@ -17,7 +16,6 @@ export function PricingStep({
   control,
   register,
   errors,
-  isOnSale,
   productType = "SIMPLE",
 }: PricingStepProps) {
   return (

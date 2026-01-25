@@ -39,7 +39,6 @@ export interface Product {
     sku: string
     isActive: boolean
     isFeatured: boolean
-    isOnSale: boolean
     discountedPrice: number | null
     seoTitle: string | null
     seoDescription: string | null
@@ -62,7 +61,6 @@ export interface CreateProductDto {
     sku?: string
     isActive?: boolean
     isFeatured?: boolean
-    isOnSale?: boolean
     discountedPrice?: number | null
     seoTitle?: string
     seoDescription?: string

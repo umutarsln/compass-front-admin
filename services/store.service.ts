@@ -33,7 +33,6 @@ export interface StoreProduct {
   description: string
   price: number
   basePrice: number
-  isOnSale: boolean
   discountedPrice: number | null
   sku: string | null
   stock: {

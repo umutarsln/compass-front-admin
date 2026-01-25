@@ -4,28 +4,21 @@ import { Controller } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
-import { Textarea } from "@/components/ui/textarea"
-import TurndownService from "turndown"
 
 interface BasicInfoStepProps {
   control: any
   register: any
   errors: any
-  htmlDescription: string
-  setHtmlDescription: (html: string) => void
+  markdownDescription: string
+  setMarkdownDescription: (markdown: string) => void
 }
-
-const turndownService = new TurndownService({
-  headingStyle: "atx",
-  codeBlockStyle: "fenced",
-})
 
 export function BasicInfoStep({
   control,
   register,
   errors,
-  htmlDescription,
-  setHtmlDescription,
+  markdownDescription,
+  setMarkdownDescription,
 }: BasicInfoStepProps) {
   return (
     <div className="space-y-6">
@@ -75,12 +68,9 @@ export function BasicInfoStep({
             control={control}
             render={({ field }) => (
               <RichTextEditor
-                content={htmlDescription}
-                onChange={(html) => {
-                  setHtmlDescription(html)
-                  const markdown = html
-                    ? turndownService.turndown(html)
-                    : ""
+                content={markdownDescription || field.value || ""}
+                onChange={(markdown) => {
+                  setMarkdownDescription(markdown)
                   field.onChange(markdown)
                 }}
                 placeholder="Ürün açıklamasını buraya yazın..."

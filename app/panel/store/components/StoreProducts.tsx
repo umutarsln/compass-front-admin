@@ -92,7 +92,7 @@ export function StoreProducts({ productsData }: StoreProductsProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {productsData.products.map((product) => {
               const finalPrice = getFinalPrice(product)
-              const hasDiscount = product.isOnSale && product.discountedPrice
+              const hasDiscount = product.discountedPrice !== null && product.discountedPrice !== undefined
               const imageUrl = getProductImage(product)
 
               return (

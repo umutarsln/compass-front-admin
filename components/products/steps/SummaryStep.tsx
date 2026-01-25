@@ -71,7 +71,7 @@ export function SummaryStep({ productId, productType = "SIMPLE" }: SummaryStepPr
     )
   }
 
-  const finalPrice = product.isOnSale && product.discountedPrice
+  const finalPrice = product.discountedPrice
     ? Number(product.discountedPrice)
     : Number(product.basePrice)
 
@@ -110,7 +110,7 @@ export function SummaryStep({ productId, productType = "SIMPLE" }: SummaryStepPr
               <span className="text-muted-foreground">Fiyat:</span>
               <span className="font-medium text-foreground">
                 ₺{Number(product.basePrice).toFixed(2)}
-                {product.isOnSale && product.discountedPrice && (
+                {product.discountedPrice && (
                   <span className="ml-2 text-green-600">
                     (₺{finalPrice.toFixed(2)} - İndirimli)
                   </span>

@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
-import TurndownService from "turndown"
 import { marked } from "marked"
 import { Button } from "@/components/ui/button"
 import { Stepper, StepContent } from "@/components/ui/stepper"
@@ -45,7 +44,6 @@ const productSchema = z.object({
     sku: z.string().optional(),
     isActive: z.boolean().default(true),
     isFeatured: z.boolean().default(false),
-    isOnSale: z.boolean().default(false),
     discountedPrice: z.number().min(0).nullable().optional(),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
@@ -55,8 +53,8 @@ const productSchema = z.object({
     personalizationFormId: z.string().uuid().optional().nullable(),
 }).refine(
     (data) => {
-        // Eğer isOnSale true ise discountedPrice olmalı
-        if (data.isOnSale && (!data.discountedPrice || data.discountedPrice <= 0)) {
+        // Validation: discountedPrice varsa geçerli olmalı
+        if (data.discountedPrice !== null && data.discountedPrice !== undefined && data.discountedPrice <= 0) {
             return false
         }
         return true
@@ -207,14 +205,8 @@ export function ProductForm({ product }: ProductFormProps) {
     const initialStockState = useRef(stockState)
     const hasUnsavedChanges = useRef(false)
 
-    // Turndown service for HTML to Markdown conversion
-    const turndownService = new TurndownService({
-        headingStyle: "atx",
-        codeBlockStyle: "fenced",
-    })
-
-    // HTML description state for rich text editor
-    const [htmlDescription, setHtmlDescription] = useState("")
+    // Markdown description state for rich text editor
+    const [markdownDescription, setMarkdownDescription] = useState("")
 
     // Kategorileri ve tag'leri getir
     const { data: categories = [] } = useQuery({
@@ -258,7 +250,6 @@ export function ProductForm({ product }: ProductFormProps) {
             sku: "",
             isActive: true,
             isFeatured: false,
-            isOnSale: false,
             discountedPrice: null,
             seoTitle: "",
             seoDescription: "",
@@ -341,19 +332,14 @@ export function ProductForm({ product }: ProductFormProps) {
         }
     }
 
-    const isOnSale = watch("isOnSale")
     const categoryIds = watch("categoryIds")
     const tagIds = watch("tagIds")
 
     // Form'u ürün verisi ile doldur (düzenleme modu)
     useEffect(() => {
         if (product) {
-            // Markdown'ı HTML'e çevir (rich text editor için)
-            const descriptionHtml = product.description
-                ? marked.parse(product.description) as string
-                : ""
-
-            setHtmlDescription(descriptionHtml)
+            // Markdown description'ı direkt kullan
+            setMarkdownDescription(product.description || "")
             reset({
                 type: product.type,
                 name: product.name,
@@ -363,7 +349,6 @@ export function ProductForm({ product }: ProductFormProps) {
                 sku: product.sku || "",
                 isActive: product.isActive,
                 isFeatured: product.isFeatured,
-                isOnSale: product.isOnSale,
                 discountedPrice: product.discountedPrice,
                 seoTitle: product.seoTitle || "",
                 seoDescription: product.seoDescription || "",
@@ -378,7 +363,7 @@ export function ProductForm({ product }: ProductFormProps) {
             // Burada sadece productId'yi set ediyoruz, gallery durumu
             // ProductGalleryManager'ın onSaveStatusChange callback'i ile güncellenecek
         } else {
-            setHtmlDescription("")
+            setMarkdownDescription("")
         }
     }, [product, reset])
 
@@ -514,9 +499,6 @@ export function ProductForm({ product }: ProductFormProps) {
 
             // Temel bilgiler adımından sonra, ürünü güncelle (name, subtitle, description)
             if (currentStepData.id === "basic" && productId) {
-                const markdownDescription = htmlDescription
-                    ? turndownService.turndown(htmlDescription)
-                    : ""
                 await updateCategoriesTagsMutation.mutateAsync({
                     id: productId,
                     data: {
@@ -531,7 +513,6 @@ export function ProductForm({ product }: ProductFormProps) {
             if (currentStepData.id === "pricing" && productId) {
                 const pricingData: any = {
                     basePrice: formData.basePrice,
-                    isOnSale: formData.isOnSale,
                 }
 
                 // discountedPrice: Geçerli bir değer varsa her zaman gönder, yoksa null gönder
@@ -598,9 +579,6 @@ export function ProductForm({ product }: ProductFormProps) {
     // Ürünü kaydet (ara kayıt)
     const handleSaveProduct = async (): Promise<Product> => {
         const formData = watch()
-        const markdownDescription = htmlDescription
-            ? turndownService.turndown(htmlDescription)
-            : ""
 
         const createData: CreateProductDto = {
             type: formData.type,
@@ -611,7 +589,6 @@ export function ProductForm({ product }: ProductFormProps) {
             sku: formData.sku || undefined,
             isActive: formData.isActive,
             isFeatured: formData.isFeatured,
-            isOnSale: formData.isOnSale,
             personalizationFormId: formData.personalizationFormId || undefined,
         }
 
@@ -647,10 +624,6 @@ export function ProductForm({ product }: ProductFormProps) {
                 const productId = createdProduct.id
 
                 // 2. Tüm step'lerdeki verileri sırayla gönder
-                const markdownDescription = htmlDescription
-                    ? turndownService.turndown(htmlDescription)
-                    : ""
-
                 // Basic info
                 await updateCategoriesTagsMutation.mutateAsync({
                     id: productId,
@@ -665,7 +638,6 @@ export function ProductForm({ product }: ProductFormProps) {
                 // Pricing
                 const pricingData: any = {
                     basePrice: formData.basePrice,
-                    isOnSale: formData.isOnSale,
                     discountedPrice: formData.discountedPrice !== null &&
                         formData.discountedPrice !== undefined &&
                         !isNaN(Number(formData.discountedPrice)) &&
@@ -795,10 +767,6 @@ export function ProductForm({ product }: ProductFormProps) {
         try {
             if (product || createdProductId) {
                 // Update mode
-                const markdownDescription = htmlDescription
-                    ? turndownService.turndown(htmlDescription)
-                    : ""
-
                 const updateData: UpdateProductDto = {
                     type: data.type,
                     name: data.name,
@@ -808,7 +776,6 @@ export function ProductForm({ product }: ProductFormProps) {
                     sku: data.sku || undefined,
                     isActive: data.isActive,
                     isFeatured: data.isFeatured,
-                    isOnSale: data.isOnSale,
                     personalizationFormId: data.personalizationFormId || null,
                 }
 
@@ -880,8 +847,8 @@ export function ProductForm({ product }: ProductFormProps) {
                         control={control}
                         register={register}
                         errors={errors}
-                        htmlDescription={htmlDescription}
-                        setHtmlDescription={setHtmlDescription}
+                        markdownDescription={markdownDescription}
+                        setMarkdownDescription={setMarkdownDescription}
                     />
                 )
             case "personalization":
@@ -909,7 +876,6 @@ export function ProductForm({ product }: ProductFormProps) {
                         control={control}
                         register={register}
                         errors={errors}
-                        isOnSale={isOnSale}
                         productType={productType}
                     />
                 )

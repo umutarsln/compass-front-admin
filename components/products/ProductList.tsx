@@ -259,7 +259,7 @@ export function ProductList() {
 
   const calculateFinalPrice = (product: Product) => {
     const basePrice = Number(product.basePrice)
-    if (product.isOnSale && product.discountedPrice) {
+    if (product.discountedPrice) {
       return Number(product.discountedPrice)
     }
     return basePrice
@@ -536,7 +536,7 @@ export function ProductList() {
                       return (
                         <TableCell key={column.id} className="whitespace-nowrap">
                           <div className="flex flex-col gap-0.5">
-                            {product.isOnSale && product.discountedPrice ? (
+                            {product.discountedPrice ? (
                               <>
                                 <div className="font-semibold text-foreground">
                                   ₺{calculateFinalPrice(product).toFixed(2)}
@@ -625,7 +625,7 @@ export function ProductList() {
                                 Öne Çıkan
                               </Badge>
                             )}
-                            {product.isOnSale && (
+                            {product.discountedPrice && (
                               <Badge variant="outline" className="w-fit text-xs border-orange-500 text-orange-700 dark:text-orange-400">
                                 İndirimde
                               </Badge>
