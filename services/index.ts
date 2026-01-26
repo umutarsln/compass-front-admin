@@ -4,6 +4,7 @@
 
 export { BaseService } from "./base.service"
 export * from "./auth.service"
+export * from "./cache.service"
 export * from "./category.service"
 export * from "./product.service"
 export * from "./store.service"
@@ -17,6 +18,7 @@ export * from "./order.service"
 
 // Service instance'ları
 export { authService } from "./auth.service"
+export { cacheService } from "./cache.service"
 export { categoryService } from "./category.service"
 export { productService } from "./product.service"
 export { storeService } from "./store.service"

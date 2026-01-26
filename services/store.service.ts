@@ -98,7 +98,7 @@ export class StoreService {
    */
   async getProducts(query?: StoreProductQuery): Promise<StoreProductListResponse> {
     const params = new URLSearchParams()
-    
+
     if (query?.search) params.append("search", query.search)
     if (query?.categorySlugs) params.append("categorySlugs", query.categorySlugs)
     if (query?.tagSlugs) params.append("tagSlugs", query.tagSlugs)
@@ -130,13 +130,6 @@ export class StoreService {
     return response.data
   }
 
-  /**
-   * Store modülü cache'ini temizle (sadece admin)
-   */
-  async clearCache(): Promise<{ message: string }> {
-    const response: AxiosResponse<{ message: string }> = await api.delete("/store/cache")
-    return response.data
-  }
 }
 
 export interface StoreTag {

@@ -5,7 +5,7 @@ import { Search, Bell, ArrowLeft, Trash2 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
-import { storeService } from "@/services/store.service"
+import { cacheService } from "@/services/cache.service"
 import { useToast } from "@/components/ui/use-toast"
 
 interface HeaderProps {
@@ -72,12 +72,12 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
       if (pathname.startsWith("/panel/products/") && pathname !== "/panel/products/new") {
         return "Ürün Düzenle"
       }
-      
+
       // Sipariş detay sayfası: /panel/orders/[id]
       if (pathname.startsWith("/panel/orders/") && pathname !== "/panel/orders") {
         return "Sipariş Detayı"
       }
-      
+
       // Dokümantasyon detay sayfası: /panel/docs/[module]
       if (pathname.startsWith("/panel/docs/") && pathname !== "/panel/docs") {
         return "Dokümantasyon"
@@ -100,11 +100,13 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
 
     setIsClearingCache(true)
     try {
-      await storeService.clearCache()
+      const result = await cacheService.clearCache()
       toast({
         variant: "success",
         title: "Cache Temizlendi",
-        description: "Store modülü cache'i başarıyla temizlendi.",
+        description: result.deletedKeys === -1 
+          ? "Tüm cache başarıyla temizlendi."
+          : `${result.deletedKeys} adet cache key başarıyla temizlendi.`,
       })
     } catch (error: any) {
       console.error("Cache temizleme hatası:", error)
@@ -152,7 +154,7 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
             onClick={handleClearCache}
             disabled={isClearingCache}
             className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-hover hover:text-foreground transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Store Cache'ini Temizle"
+            title="Tüm Cache'leri Temizle"
           >
             <Trash2 className={`w-4 h-4 ${isClearingCache ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Cache Temizle</span>
