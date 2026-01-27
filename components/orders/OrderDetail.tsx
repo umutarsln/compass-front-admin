@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { orderService, OrderStatus } from "@/services/order.service"
+import { orderService, OrderStatus, PaymentProvider } from "@/services/order.service"
 import { Loader2, Package, User, MapPin, CreditCard, FileText, ArrowLeft, ExternalLink, Image as ImageIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,11 @@ const statusLabels: Record<OrderStatus, string> = {
   [OrderStatus.DELIVERED]: "Teslim Edildi",
   [OrderStatus.CANCELLED]: "İptal Edildi",
   [OrderStatus.REFUNDED]: "İade Edildi",
+}
+
+const paymentProviderLabels: Record<PaymentProvider, string> = {
+  [PaymentProvider.IYZICO]: "Iyzico",
+  [PaymentProvider.IBAN_EFT]: "IBAN EFT",
 }
 
 interface OrderDetailProps {
@@ -404,6 +409,16 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Durum</span>
                 <Badge className={statusColors[order.status]}>{statusLabels[order.status]}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ödeme Yöntemi</span>
+                {order.paymentProvider ? (
+                  <Badge variant="outline">
+                    {paymentProviderLabels[order.paymentProvider]}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Oluşturulma</span>

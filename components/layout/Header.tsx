@@ -104,7 +104,7 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
       toast({
         variant: "success",
         title: "Cache Temizlendi",
-        description: result.deletedKeys === -1 
+        description: result.deletedKeys === -1
           ? "Tüm cache başarıyla temizlendi."
           : `${result.deletedKeys} adet cache key başarıyla temizlendi.`,
       })

@@ -15,6 +15,7 @@ import {
   Image,
   BookOpen,
   FileText,
+  CreditCard,
 } from "lucide-react"
 
 interface NavItem {
@@ -68,6 +69,11 @@ const navItems: NavItem[] = [
     label: "Dokümantasyon",
     icon: BookOpen,
     path: "/panel/docs",
+  },
+  {
+    label: "Ödeme Ayarları",
+    icon: CreditCard,
+    path: "/panel/settings/payment",
   },
   {
     label: "Ayarlar",

@@ -15,6 +15,7 @@ export * from "./customer.service"
 export * from "./folder.service"
 export * from "./upload.service"
 export * from "./order.service"
+export * from "./payment-settings.service"
 
 // Service instance'ları
 export { authService } from "./auth.service"
@@ -29,3 +30,4 @@ export { customerService } from "./customer.service"
 export { folderService } from "./folder.service"
 export { uploadService } from "./upload.service"
 export { orderService } from "./order.service"
+export { paymentSettingsService } from "./payment-settings.service"

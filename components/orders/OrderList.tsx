@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { orderService, OrderStatus, GetOrdersParams } from "@/services/order.service"
+import { orderService, OrderStatus, GetOrdersParams, PaymentProvider } from "@/services/order.service"
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Eye, X, Columns, Filter } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -43,6 +43,11 @@ const statusLabels: Record<OrderStatus, string> = {
   [OrderStatus.REFUNDED]: "İade Edildi",
 }
 
+const paymentProviderLabels: Record<PaymentProvider, string> = {
+  [PaymentProvider.IYZICO]: "Iyzico",
+  [PaymentProvider.IBAN_EFT]: "IBAN EFT",
+}
+
 type SortField = 'createdAt' | 'updatedAt' | 'total' | 'status' | 'orderNo'
 type SortOrder = 'ASC' | 'DESC'
 
@@ -61,6 +66,7 @@ const COLUMN_DEFINITIONS: ColumnConfig[] = [
   { id: 'customer', label: 'Müşteri', sortable: true, defaultVisible: true, sortField: 'createdAt' },
   { id: 'total', label: 'Toplam', sortable: true, defaultVisible: true, sortField: 'total' },
   { id: 'status', label: 'Durum', sortable: true, defaultVisible: true, sortField: 'status' },
+  { id: 'paymentMethod', label: 'Ödeme Yöntemi', sortable: false, defaultVisible: true },
   { id: 'date', label: 'Tarih', sortable: true, defaultVisible: true, sortField: 'createdAt' },
   { id: 'updatedAt', label: 'Güncelleme', sortable: true, defaultVisible: false, sortField: 'updatedAt' },
   { id: 'actions', label: 'İşlemler', sortable: false, defaultVisible: true },
@@ -406,6 +412,18 @@ export function OrderList() {
                               <Badge className={statusColors[order.status]}>
                                 {statusLabels[order.status]}
                               </Badge>
+                            </TableCell>
+                          )
+                        case 'paymentMethod':
+                          return (
+                            <TableCell key={column.id} className="whitespace-nowrap">
+                              {order.paymentProvider ? (
+                                <Badge variant="outline">
+                                  {paymentProviderLabels[order.paymentProvider]}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                           )
                         case 'date':

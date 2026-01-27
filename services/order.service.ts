@@ -11,6 +11,11 @@ export enum OrderStatus {
     REFUNDED = 'REFUNDED',
 }
 
+export enum PaymentProvider {
+    IYZICO = 'IYZICO',
+    IBAN_EFT = 'IBAN_EFT',
+}
+
 export interface OrderItem {
     id: string
     productId: string
@@ -87,6 +92,7 @@ export interface Order {
     } | null
     notes: string | null
     items: OrderItem[]
+    paymentProvider: PaymentProvider | null
     createdAt: string
     updatedAt: string
 }
