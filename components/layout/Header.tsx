@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Bell, ArrowLeft, Trash2 } from "lucide-react"
+import { Search, Bell, ArrowLeft, Trash2, BarChart2 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { cacheService } from "@/services/cache.service"
+import { analyticsService } from "@/services/analytics.service"
 import { useToast } from "@/components/ui/use-toast"
 
 interface HeaderProps {
@@ -17,6 +18,7 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
   const [isClearingCache, setIsClearingCache] = useState(false)
+  const [isAggregating, setIsAggregating] = useState(false)
   const { isAdmin } = useAuth()
   const { toast } = useToast()
 
@@ -120,6 +122,35 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
     }
   }
 
+  const handleRunAnalyticsAggregation = async () => {
+    if (!isAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Yetkisiz İşlem",
+        description: "Bu işlem için admin yetkisi gereklidir.",
+      })
+      return
+    }
+    setIsAggregating(true)
+    try {
+      const result = await analyticsService.runDailyAggregation()
+      toast({
+        variant: "success",
+        title: "Analiz Güncellendi",
+        description: result?.message ?? "Günlük analiz agregasyonu tamamlandı.",
+      })
+    } catch (error: any) {
+      console.error("Analiz güncelleme hatası:", error)
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error?.response?.data?.message || "Analiz güncellenirken bir hata oluştu.",
+      })
+    } finally {
+      setIsAggregating(false)
+    }
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-8 sticky top-0 z-10">
       <div className="flex items-center gap-4">
@@ -135,9 +166,9 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
           {getPageTitle()}
         </h2>
       </div>
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-6 h-16">
         {/* Search */}
-        <div className="group flex w-64 items-center rounded-lg bg-muted px-3 py-2 transition-all duration-200 hover:bg-muted/80 focus-within:bg-muted/80 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30">
+        {/* <div className="group flex w-64 items-center rounded-lg bg-muted px-3 py-2 transition-all duration-200 hover:bg-muted/80 focus-within:bg-muted/80 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30">
           <Search className="text-muted-foreground text-xl w-5 h-5 transition-colors duration-200 group-focus-within:text-primary" />
           <input
             type="text"
@@ -146,7 +177,20 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
             placeholder="Ara..."
             className="ml-2 w-full bg-transparent text-sm font-normal text-foreground placeholder-muted-foreground focus:outline-none border-none focus:ring-0 p-0 transition-colors duration-200"
           />
-        </div>
+        </div> */}
+
+        {/* Analiz güncelle (günlük agregasyon) - Admin Only */}
+        {isAdmin && (
+          <button
+            onClick={handleRunAnalyticsAggregation}
+            disabled={isAggregating}
+            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-hover hover:text-foreground transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Günlük analizi şimdi güncelle (dünün verileri)"
+          >
+            <BarChart2 className={`w-4 h-4 ${isAggregating ? "animate-pulse" : ""}`} />
+            <span className="hidden sm:inline">Analiz Güncelle</span>
+          </button>
+        )}
 
         {/* Cache Clear Button (Admin Only) */}
         {isAdmin && (
@@ -156,7 +200,7 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
             className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-hover hover:text-foreground transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Tüm Cache'leri Temizle"
           >
-            <Trash2 className={`w-4 h-4 ${isClearingCache ? 'animate-spin' : ''}`} />
+            <Trash2 className={`w-4 h-4 ${isClearingCache ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Cache Temizle</span>
           </button>
         )}

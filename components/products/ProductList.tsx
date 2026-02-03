@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { productService, Product, ProductType, GetProductsParams } from "@/services/product.service"
 import { useToast } from "@/components/ui/use-toast"
 import { categoryService, Category } from "@/services/category.service"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus, Edit, Trash2, Columns, Settings } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Filter, X, Plus, Edit, Trash2, Columns, Settings, BarChart2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -155,46 +155,50 @@ export function ProductList() {
     router.push(`/panel/products/${product.slug}`)
   }
 
+  const handleAnalytics = (product: Product) => {
+    router.push(`/panel/analytics/products/${product.id}`)
+  }
+
   // Client-side sorting
   const sortedProducts = products
     ? [...products].sort((a, b) => {
-        if (!sortField) return 0
+      if (!sortField) return 0
 
-        let aValue: string | number | boolean = ""
-        let bValue: string | number | boolean = ""
+      let aValue: string | number | boolean = ""
+      let bValue: string | number | boolean = ""
 
-        switch (sortField) {
-          case "name":
-            aValue = a.name.toLowerCase()
-            bValue = b.name.toLowerCase()
-            break
-          case "basePrice":
+      switch (sortField) {
+        case "name":
+          aValue = a.name.toLowerCase()
+          bValue = b.name.toLowerCase()
+          break
+        case "basePrice":
           aValue = Number(a.basePrice)
           bValue = Number(b.basePrice)
-            break
-          case "createdAt":
-            aValue = new Date(a.createdAt).getTime()
-            bValue = new Date(b.createdAt).getTime()
-            break
-          case "isActive":
-            aValue = a.isActive
-            bValue = b.isActive
-            break
-          case "isFeatured":
-            aValue = a.isFeatured
-            bValue = b.isFeatured
-            break
-        }
+          break
+        case "createdAt":
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+          break
+        case "isActive":
+          aValue = a.isActive
+          bValue = b.isActive
+          break
+        case "isFeatured":
+          aValue = a.isFeatured
+          bValue = b.isFeatured
+          break
+      }
 
-        if (typeof aValue === "boolean" && typeof bValue === "boolean") {
-          if (aValue === bValue) return 0
-          return sortOrder === "asc" ? (aValue ? -1 : 1) : aValue ? 1 : -1
-        }
+      if (typeof aValue === "boolean" && typeof bValue === "boolean") {
+        if (aValue === bValue) return 0
+        return sortOrder === "asc" ? (aValue ? -1 : 1) : aValue ? 1 : -1
+      }
 
-        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
-        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
-        return 0
-      })
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
+      return 0
+    })
     : []
 
   // Client-side search
@@ -321,7 +325,7 @@ export function ProductList() {
               className="w-full h-10 pl-9 pr-4 rounded-md border border-border bg-background text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
-          
+
           {/* Aktif Filtreler */}
           {hasActiveFilters && (
             <div className="flex items-center gap-2 flex-wrap">
@@ -430,7 +434,7 @@ export function ProductList() {
             <Filter className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs font-medium text-muted-foreground">Filtreler:</span>
           </div>
-          
+
           {/* Type Filter */}
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ProductType | "all")}>
             <SelectTrigger className="w-[140px] h-9 text-sm">
@@ -652,6 +656,15 @@ export function ProductList() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleAnalytics(product)}
+                              disabled={deletingProductId === product.id}
+                            >
+                              <BarChart2 className="w-4 h-4 mr-1" />
+                              Analiz
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEdit(product)}
                               disabled={deletingProductId === product.id}
                             >
@@ -715,7 +728,7 @@ export function ProductList() {
               "Ürün bulunamadı"
             )}
           </div>
-          
+
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <Button
@@ -726,7 +739,7 @@ export function ProductList() {
               >
                 Önceki
               </Button>
-              
+
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                   if (
@@ -755,7 +768,7 @@ export function ProductList() {
                   return null
                 })}
               </div>
-              
+
               <Button
                 variant="outline"
                 size="sm"
