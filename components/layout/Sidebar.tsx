@@ -16,6 +16,7 @@ import {
   BookOpen,
   FileText,
   CreditCard,
+  Ticket,
 } from "lucide-react"
 
 interface NavItem {
@@ -54,6 +55,11 @@ const navItems: NavItem[] = [
     label: "Adminler",
     icon: Shield,
     path: "/panel/admins",
+  },
+  {
+    label: "Kuponlar",
+    icon: Ticket,
+    path: "/panel/coupons",
   },
   {
     label: "Medya",
