@@ -112,7 +112,7 @@ export function OrderList() {
 
   // Debounced search - backend'de arama yapılacak
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  
+
   // Debounce search query
   useMemo(() => {
     const timer = setTimeout(() => {
@@ -227,7 +227,7 @@ export function OrderList() {
               <Filter className="w-4 h-4 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">Filtreler:</span>
             </div>
-            
+
             <Select value={statusFilter} onValueChange={(value) => {
               setStatusFilter(value as OrderStatus | "ALL")
               setPage(1)
@@ -385,15 +385,17 @@ export function OrderList() {
                             <TableCell key={column.id}>
                               <div className="flex flex-col gap-0.5">
                                 <span className="font-medium text-sm">
-                                  {order.userId
-                                    ? "Kayıtlı Kullanıcı"
+                                  {order.user
+                                    ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() || "Kayıtlı kullanıcı"
                                     : `${order.guestFirstName || ""} ${order.guestLastName || ""}`.trim() || "Misafir"}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
-                                  {order.guestEmail || order.guestPhone || "-"}
+                                  {order.user?.email ?? order.guestEmail ?? order.user?.phone ?? order.guestPhone ?? "-"}
                                 </span>
-                                {order.guestPhone && order.guestEmail && (
-                                  <span className="text-xs text-muted-foreground">{order.guestPhone}</span>
+                                {((order.user?.email && order.user?.phone) || (order.guestEmail && order.guestPhone)) && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {order.user?.phone ?? order.guestPhone}
+                                  </span>
                                 )}
                               </div>
                             </TableCell>
@@ -496,7 +498,7 @@ export function OrderList() {
               "Sipariş bulunamadı"
             )}
           </div>
-          
+
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <Button
@@ -507,7 +509,7 @@ export function OrderList() {
               >
                 Önceki
               </Button>
-              
+
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum: number
@@ -533,7 +535,7 @@ export function OrderList() {
                   )
                 })}
               </div>
-              
+
               <Button
                 variant="outline"
                 size="sm"

@@ -2,8 +2,8 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import Image from "next/image"
-import { FileImage } from "lucide-react"
+import { FileImage, Download } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface PersonalizationSummaryProps {
   personalization: {
@@ -42,6 +42,29 @@ export function PersonalizationSummary({
     return schemaSnapshot.fields.find((f) => f.key === fieldKey)
   }
 
+  // Resolve image URL from API response: string url veya { id, url } objesi
+  const getImageUrl = (item: unknown): string | null => {
+    if (typeof item === "string" && item.startsWith("http")) return item
+    if (item && typeof item === "object" && "url" in item && typeof (item as { url: string }).url === "string") {
+      return (item as { url: string }).url
+    }
+    return null
+  }
+
+  const handleDownloadImage = async (url: string, label: string) => {
+    try {
+      const res = await fetch(url, { mode: "cors" })
+      const blob = await res.blob()
+      const a = document.createElement("a")
+      a.href = URL.createObjectURL(blob)
+      a.download = label || "fotoğraf"
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      window.open(url, "_blank")
+    }
+  }
+
   // Render field value based on type
   const renderFieldValue = (fieldKey: string, value: any) => {
     const field = getFieldDefinition(fieldKey)
@@ -49,44 +72,72 @@ export function PersonalizationSummary({
 
     switch (field.type) {
       case "IMAGE_PICKER_SINGLE":
-      case "FILE_UPLOAD_SINGLE":
-        if (typeof value === "string" && value.startsWith("http")) {
+      case "FILE_UPLOAD_SINGLE": {
+        const src = getImageUrl(value)
+        if (src) {
           return (
-            <div className="mt-2">
-              <Image
-                src={value}
+            <div className="mt-2 relative inline-flex group h-24 items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
                 alt={field.title}
-                width={100}
-                height={100}
-                className="rounded-lg object-cover"
+                className="h-full w-auto max-w-full object-contain rounded-lg"
               />
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="absolute bottom-1 right-1 h-8 w-8 opacity-90 hover:opacity-100 shadow"
+                onClick={() => handleDownloadImage(src, `${field.title}.jpg`)}
+                title="İndir"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
             </div>
           )
         }
         return <span className="text-sm text-muted-foreground">Dosya yüklendi</span>
+      }
 
       case "IMAGE_PICKER_MULTI":
       case "FILE_UPLOAD_MULTI":
         if (Array.isArray(value)) {
           return (
-            <div className="mt-2 flex gap-2 flex-wrap">
-              {value.map((url, idx) => (
-                <div key={idx}>
-                  {typeof url === "string" && url.startsWith("http") ? (
-                    <Image
-                      src={url}
-                      alt={`${field.title} ${idx + 1}`}
-                      width={80}
-                      height={80}
-                      className="rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 border rounded-lg flex items-center justify-center">
-                      <FileImage className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="mt-2 flex gap-2 flex-wrap items-end">
+              {value.map((item, idx) => {
+                const src = getImageUrl(item)
+                return (
+                  <div
+                    key={typeof item === "object" && item !== null && "id" in item ? (item as { id: string }).id : idx}
+                    className="relative group h-24 flex items-center"
+                  >
+                    {src ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={`${field.title} ${idx + 1}`}
+                          className="h-full w-auto max-w-full object-contain rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute bottom-0.5 right-0.5 h-7 w-7 opacity-90 hover:opacity-100 shadow"
+                          onClick={() => handleDownloadImage(src, `${field.title}-${idx + 1}.jpg`)}
+                          title="İndir"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="w-20 h-24 border rounded-lg flex items-center justify-center">
+                        <FileImage className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )
         }

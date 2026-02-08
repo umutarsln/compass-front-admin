@@ -53,10 +53,20 @@ export interface OrderItem {
     personalization?: any | null
 }
 
+/** Kayıtlı kullanıcı bilgisi (sipariş kayıtlı kullanıcıya aitse dolu) */
+export interface OrderUser {
+    email: string
+    firstname: string
+    lastname: string
+    phone: string | null
+}
+
 export interface Order {
     id: string
     orderNo: string
     userId: string | null
+    /** Kayıtlı kullanıcı siparişi ise ad, soyad, email, telefon */
+    user?: OrderUser | null
     cartId: string | null
     guestEmail: string | null
     guestPhone: string | null

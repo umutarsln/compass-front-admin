@@ -1,5 +1,6 @@
 "use client"
 
+import { Fragment } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { orderService, OrderStatus, PaymentProvider } from "@/services/order.service"
 import { Loader2, Package, User, MapPin, CreditCard, FileText, ArrowLeft, ExternalLink, Image as ImageIcon } from "lucide-react"
@@ -168,79 +169,80 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
                       : null
 
                     return (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="flex gap-4">
-                            {/* Product Image */}
-                            <div className="relative w-16 h-16 flex-shrink-0 bg-secondary rounded overflow-hidden">
-                              {productImage ? (
-                                <Image
-                                  src={productImage}
-                                  alt={item.productName}
-                                  fill
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Product Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start gap-2">
-                                <span className="font-medium">{item.productName}</span>
-                                {productLink && (
-                                  <Link
-                                    href={productLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-shrink-0"
-                                  >
-                                    <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
-                                  </Link>
+                      <Fragment key={item.id}>
+                        <TableRow>
+                          <TableCell>
+                            <div className="flex gap-4">
+                              {/* Product Image */}
+                              <div className="relative w-16 h-16 shrink-0 bg-secondary rounded overflow-hidden">
+                                {productImage ? (
+                                  <Image
+                                    src={productImage}
+                                    alt={item.productName}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                                  </div>
                                 )}
                               </div>
-                              {item.variantId && (
-                                <span className="text-sm text-muted-foreground block mt-1">
-                                  Varyant ID: {item.variantId.slice(0, 8)}...
-                                </span>
-                              )}
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Ürün ID: {item.productId.slice(0, 8)}...
-                              </div>
-                              {/* Personalization Summary */}
-                              {item.personalization && (
-                                <div className="mt-3">
-                                  <PersonalizationSummary
-                                    personalization={item.personalization}
-                                    readOnly
-                                  />
+
+                              {/* Product Info - kişiselleştirme burada değil, aşağıda ayrı satırda */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start gap-2">
+                                  <span className="font-medium">{item.productName}</span>
+                                  {productLink && (
+                                    <Link
+                                      href={productLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="shrink-0"
+                                    >
+                                      <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                                    </Link>
+                                  )}
                                 </div>
-                              )}
+                                {item.variantId && (
+                                  <span className="text-sm text-muted-foreground block mt-1">
+                                    Varyant ID: {item.variantId.slice(0, 8)}...
+                                  </span>
+                                )}
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Ürün ID: {item.productId.slice(0, 8)}...
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">
-                          {item.discountedPrice ? (
-                            <div className="flex flex-col items-end">
-                              <span className="text-sm line-through text-muted-foreground">
-                                {item.unitPrice.toFixed(2)} {item.currency}
-                              </span>
-                              <span className="font-medium text-primary">
-                                {item.discountedPrice.toFixed(2)} {item.currency}
-                              </span>
-                            </div>
-                          ) : (
-                            <span>{item.unitPrice.toFixed(2)} {item.currency}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {item.totalPrice.toFixed(2)} {item.currency}
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right">
+                            {item.discountedPrice ? (
+                              <div className="flex flex-col items-end">
+                                <span className="font-medium text-primary">
+                                  {item.discountedPrice.toFixed(2)} {item.currency}
+                                </span>
+                              </div>
+                            ) : (
+                              <span>{item.unitPrice.toFixed(2)} {item.currency}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {item.totalPrice.toFixed(2)} {item.currency}
+                          </TableCell>
+                        </TableRow>
+                        {/* Kişiselleştirme ayrı satırda, tam genişlikte */}
+                        {item.personalization && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="bg-muted/30 p-4">
+                              <PersonalizationSummary
+                                personalization={item.personalization}
+                                readOnly
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
                     )
                   })}
                 </TableBody>
@@ -345,7 +347,25 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {order.userId ? (
+              {order.user ? (
+                <div className="flex flex-col gap-2">
+                  <Badge variant="outline">Kayıtlı Kullanıcı</Badge>
+                  <p className="text-sm">
+                    <span className="font-medium">Ad Soyad:</span> {order.user.firstname} {order.user.lastname}
+                  </p>
+                  {order.user.email && (
+                    <p className="text-sm">
+                      <span className="font-medium">Email:</span> {order.user.email}
+                    </p>
+                  )}
+                  {order.user.phone && (
+                    <p className="text-sm">
+                      <span className="font-medium">Telefon:</span> {order.user.phone}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">User ID: {order.userId}</p>
+                </div>
+              ) : order.userId ? (
                 <div className="flex flex-col gap-2">
                   <Badge variant="outline">Kayıtlı Kullanıcı</Badge>
                   <p className="text-sm text-muted-foreground">User ID: {order.userId}</p>
