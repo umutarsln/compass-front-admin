@@ -13,7 +13,9 @@ export enum OrderStatus {
 
 export enum PaymentProvider {
     IYZICO = 'IYZICO',
+    QNBPAY = 'QNBPAY',
     IBAN_EFT = 'IBAN_EFT',
+    FREE_ORDER = 'FREE_ORDER',
 }
 
 export interface OrderItem {
@@ -103,6 +105,8 @@ export interface Order {
     notes: string | null
     items: OrderItem[]
     paymentProvider: PaymentProvider | null
+    paymentAttemptId?: string | null
+    paymentProviderOrderRef?: string | null
     createdAt: string
     updatedAt: string
 }

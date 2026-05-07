@@ -10,6 +10,13 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Loader2, Save } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function PaymentSettingsPage() {
   const [settings, setSettings] = useState<PaymentSettings | null>(null)
@@ -86,7 +93,7 @@ export default function PaymentSettingsPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Ödeme Ayarları</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Iyzico ve IBAN EFT ödeme ayarlarını yönetin.
+              Iyzico, QNBpay ve IBAN EFT ödeme ayarlarını yönetin.
             </p>
           </div>
           <Button onClick={handleSave} disabled={saving}>
@@ -162,6 +169,118 @@ export default function PaymentSettingsPage() {
                   setSettings({ ...settings, iyzicoBaseUrl: e.target.value })
                 }
                 placeholder="https://api.iyzipay.com veya https://sandbox-api.iyzipay.com"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* QNBpay */}
+        <div className="space-y-6 p-6 border border-border rounded-lg bg-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">QNBpay</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Hosted link veya paySmart3D. Webhook için panelde URL:{" "}
+                <span className="font-mono text-xs">
+                  {"{"}APP_PUBLIC_URL{"}"}/payments/qnbpay/webhook
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={settings.qnbpayEnabled ?? false}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, qnbpayEnabled: checked })
+                }
+              />
+              <Label>QNBpay aktif</Label>
+            </div>
+          </div>
+          <Separator />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="qnbpayAppId">APP ID (app_id)</Label>
+              <Input
+                id="qnbpayAppId"
+                type="password"
+                value={settings.qnbpayAppId || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, qnbpayAppId: e.target.value })
+                }
+                placeholder="APP KEY"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qnbpayAppSecret">APP Secret</Label>
+              <Input
+                id="qnbpayAppSecret"
+                type="password"
+                value={settings.qnbpayAppSecret || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, qnbpayAppSecret: e.target.value })
+                }
+                placeholder="APP SECRET"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qnbpayMerchantKey">Merchant Key</Label>
+              <Input
+                id="qnbpayMerchantKey"
+                type="password"
+                value={settings.qnbpayMerchantKey || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, qnbpayMerchantKey: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qnbpayMerchantId">Merchant ID (opsiyonel)</Label>
+              <Input
+                id="qnbpayMerchantId"
+                value={settings.qnbpayMerchantId || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, qnbpayMerchantId: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="qnbpayBaseUrl">Base URL</Label>
+              <Input
+                id="qnbpayBaseUrl"
+                value={settings.qnbpayBaseUrl || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, qnbpayBaseUrl: e.target.value })
+                }
+                placeholder="https://test.qnbpay.com.tr/ccpayment"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Checkout modu</Label>
+              <Select
+                value={settings.qnbpayCheckoutMode || "hosted_link"}
+                onValueChange={(v) =>
+                  setSettings({ ...settings, qnbpayCheckoutMode: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Mod seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hosted_link">Hosted link (önerilen)</SelectItem>
+                  <SelectItem value="pay_smart_3d">paySmart3D (kart bu sitede)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="qnbpaySaleWebhookKey">Satış webhook anahtarı (opsiyonel)</Label>
+              <Input
+                id="qnbpaySaleWebhookKey"
+                type="password"
+                value={settings.qnbpaySaleWebhookKey || ""}
+                onChange={(e) =>
+                  setSettings({ ...settings, qnbpaySaleWebhookKey: e.target.value })
+                }
+                placeholder="Paneldeki sale_web_hook_key"
               />
             </div>
           </div>

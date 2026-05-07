@@ -39,7 +39,9 @@ const statusLabels: Record<OrderStatus, string> = {
 
 const paymentProviderLabels: Record<PaymentProvider, string> = {
   [PaymentProvider.IYZICO]: "Iyzico",
+  [PaymentProvider.QNBPAY]: "QNBpay",
   [PaymentProvider.IBAN_EFT]: "IBAN EFT",
+  [PaymentProvider.FREE_ORDER]: "Ücretsiz sipariş",
 }
 
 interface OrderDetailProps {
@@ -440,6 +442,22 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
                   <span className="text-muted-foreground">-</span>
                 )}
               </div>
+              {(order.paymentAttemptId || order.paymentProviderOrderRef) && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  {order.paymentAttemptId && (
+                    <div>
+                      <span className="text-muted-foreground block text-xs mb-1">Ödeme denemesi / fatura ID</span>
+                      <p className="font-mono text-xs break-all">{order.paymentAttemptId}</p>
+                    </div>
+                  )}
+                  {order.paymentProviderOrderRef && (
+                    <div>
+                      <span className="text-muted-foreground block text-xs mb-1">Sağlayıcı işlem referansı</span>
+                      <p className="font-mono text-xs break-all">{order.paymentProviderOrderRef}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Oluşturulma</span>
                 <span>{format(new Date(order.createdAt), "dd MMM yyyy, HH:mm", { locale: tr })}</span>

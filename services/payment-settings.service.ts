@@ -12,6 +12,14 @@ export interface PaymentSettings {
   bankName: string | null
   whatsappNumber: string | null
   ibanEftEnabled: boolean
+  qnbpayAppId: string | null
+  qnbpayAppSecret: string | null
+  qnbpayMerchantKey: string | null
+  qnbpayMerchantId: string | null
+  qnbpayBaseUrl: string | null
+  qnbpayEnabled: boolean
+  qnbpayCheckoutMode: string | null
+  qnbpaySaleWebhookKey: string | null
   createdAt: string
   updatedAt: string
 }
@@ -25,8 +33,11 @@ export class PaymentSettingsService {
   /**
    * Ödeme ayarlarını getir
    */
+  /**
+   * Admin panel: tam ayarlar (JWT ADMIN gerekir).
+   */
   async getSettings(): Promise<PaymentSettings> {
-    const response: AxiosResponse<PaymentSettings> = await api.get(this.endpoint)
+    const response: AxiosResponse<PaymentSettings> = await api.get(`${this.endpoint}/admin`)
     return response.data
   }
 

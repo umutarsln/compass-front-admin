@@ -36,11 +36,6 @@ export function Header({ title, hideSidebar = false }: HeaderProps) {
       return "/panel/products"
     }
 
-    // Kişiselleştirme form detay sayfasından formlar listesine dön
-    if (pathname.startsWith("/panel/personalization/forms/") && pathname !== "/panel/personalization/forms") {
-      return "/panel/personalization/forms"
-    }
-
     // Varsayılan olarak dashboard'a dön
     return "/panel/dashboard"
   }

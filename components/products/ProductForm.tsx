@@ -32,8 +32,6 @@ import { StockStep } from "./steps/StockStep"
 import { SummaryStep } from "./steps/SummaryStep"
 import { VariantsStep } from "./steps/VariantsStep"
 import { VariantCombinationsStep } from "./steps/VariantCombinationsStep"
-import { PersonalizationStep } from "./steps/PersonalizationStep"
-import { personalizationService } from "@/services/personalization.service"
 
 const productSchema = z.object({
     type: z.enum(["SIMPLE", "VARIANT", "BUNDLE"]),
@@ -109,12 +107,6 @@ const ALL_STEPS = {
         description: "Kategorileri ve tag'leri seçin",
         applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
     },
-    personalization: {
-        id: "personalization",
-        title: "Kişiselleştirme",
-        description: "Kişiselleştirme formunu seçin",
-        applicableTypes: ["SIMPLE", "VARIANT", "BUNDLE"] as ProductType[],
-    },
     seo: {
         id: "seo",
         title: "SEO Ayarları",
@@ -157,7 +149,6 @@ const getStepsForProductType = (productType: ProductType | undefined) => {
         "variantCombinations",
         "pricing",
         "categories",
-        "personalization",
         "seo",
         "gallery",
         "stock",
@@ -223,11 +214,6 @@ export function ProductForm({ product }: ProductFormProps) {
     const { data: tags = [] } = useQuery({
         queryKey: ["tags"],
         queryFn: () => tagService.getAll(),
-    })
-
-    const { data: personalizationForms = [] } = useQuery({
-        queryKey: ["personalization-forms"],
-        queryFn: () => personalizationService.getForms(),
     })
 
     const {
@@ -557,16 +543,6 @@ export function ProductForm({ product }: ProductFormProps) {
                 })
             }
 
-            // Kişiselleştirme adımından sonra, ürünü güncelle
-            if (currentStepData.id === "personalization" && productId) {
-                await updateCategoriesTagsMutation.mutateAsync({
-                    id: productId,
-                    data: {
-                        personalizationFormId: formData.personalizationFormId || null,
-                    },
-                })
-            }
-
             setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
         }
     }
@@ -849,14 +825,6 @@ export function ProductForm({ product }: ProductFormProps) {
                         errors={errors}
                         markdownDescription={markdownDescription}
                         setMarkdownDescription={setMarkdownDescription}
-                    />
-                )
-            case "personalization":
-                return (
-                    <PersonalizationStep
-                        control={control}
-                        errors={errors}
-                        personalizationForms={personalizationForms}
                     />
                 )
             case "variants":

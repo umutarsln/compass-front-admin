@@ -1,7 +1,8 @@
 import axios from "axios"
 import { accessTokenCookie, refreshTokenCookie } from "./cookies"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shawk.com.tr"
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4141"
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,11 +11,27 @@ export const api = axios.create({
   },
 })
 
+/**
+ * Cookie bulunamadığında persisted auth-store içinden access token okur.
+ */
+function getAccessTokenFromPersistedStore(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem("auth-storage")
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { state?: { accessToken?: string | null } }
+    const token = parsed?.state?.accessToken
+    return typeof token === "string" && token.trim().length > 0 ? token : null
+  } catch {
+    return null
+  }
+}
+
 // Request interceptor - Token ekleme
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const token = accessTokenCookie.get()
+      const token = accessTokenCookie.get() || getAccessTokenFromPersistedStore()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
