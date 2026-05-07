@@ -45,7 +45,9 @@ const statusLabels: Record<OrderStatus, string> = {
 
 const paymentProviderLabels: Record<PaymentProvider, string> = {
   [PaymentProvider.IYZICO]: "Iyzico",
+  [PaymentProvider.QNBPAY]: "QNBPay",
   [PaymentProvider.IBAN_EFT]: "IBAN EFT",
+  [PaymentProvider.FREE_ORDER]: "",
 }
 
 type SortField = 'createdAt' | 'updatedAt' | 'total' | 'status' | 'orderNo'
@@ -419,7 +421,7 @@ export function OrderList() {
                         case 'paymentMethod':
                           return (
                             <TableCell key={column.id} className="whitespace-nowrap">
-                              {order.paymentProvider ? (
+                              {order.paymentProvider && order.paymentProvider !== PaymentProvider.FREE_ORDER ? (
                                 <Badge variant="outline">
                                   {paymentProviderLabels[order.paymentProvider]}
                                 </Badge>

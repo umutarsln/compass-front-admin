@@ -41,7 +41,7 @@ const paymentProviderLabels: Record<PaymentProvider, string> = {
   [PaymentProvider.IYZICO]: "Iyzico",
   [PaymentProvider.QNBPAY]: "QNBpay",
   [PaymentProvider.IBAN_EFT]: "IBAN EFT",
-  [PaymentProvider.FREE_ORDER]: "Ücretsiz sipariş",
+  [PaymentProvider.FREE_ORDER]: "",
 }
 
 interface OrderDetailProps {
@@ -434,7 +434,7 @@ export function OrderDetail({ orderId }: OrderDetailProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ödeme Yöntemi</span>
-                {order.paymentProvider ? (
+                {order.paymentProvider && order.paymentProvider !== PaymentProvider.FREE_ORDER ? (
                   <Badge variant="outline">
                     {paymentProviderLabels[order.paymentProvider]}
                   </Badge>
