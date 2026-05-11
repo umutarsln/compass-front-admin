@@ -33,16 +33,46 @@ import { SummaryStep } from "./steps/SummaryStep"
 import { VariantsStep } from "./steps/VariantsStep"
 import { VariantCombinationsStep } from "./steps/VariantCombinationsStep"
 
+/**
+ * Fiyat inputlarını API decimal stringleri ve Türkçe virgüllü sayı formatı dahil number'a çevirir.
+ */
+function parsePriceInput(value: unknown): number | undefined {
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : undefined
+    }
+
+    if (typeof value !== "string") {
+        return undefined
+    }
+
+    const trimmed = value.trim()
+    if (!trimmed) {
+        return undefined
+    }
+
+    const normalized = trimmed.includes(",")
+        ? trimmed.replace(/\./g, "").replace(",", ".")
+        : trimmed
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : undefined
+}
+
 const productSchema = z.object({
     type: z.enum(["SIMPLE", "VARIANT", "BUNDLE"]),
     name: z.string().min(1, "Ürün adı gereklidir"),
     subtitle: z.string().optional().nullable(),
     description: z.string().min(1, "Ürün açıklaması gereklidir"),
-    basePrice: z.number().min(0, "Fiyat 0'dan büyük olmalıdır"),
+    basePrice: z.preprocess(
+        parsePriceInput,
+        z.number().min(0, "Fiyat 0'dan büyük olmalıdır")
+    ),
     sku: z.string().optional(),
     isActive: z.boolean().default(true),
     isFeatured: z.boolean().default(false),
-    discountedPrice: z.number().min(0).nullable().optional(),
+    discountedPrice: z.preprocess(
+        (value) => parsePriceInput(value) ?? null,
+        z.number().min(0).nullable().optional()
+    ),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     seoKeywords: z.string().optional(),
@@ -331,11 +361,11 @@ export function ProductForm({ product }: ProductFormProps) {
                 name: product.name,
                 subtitle: product.subtitle || null,
                 description: product.description || "",
-                basePrice: product.basePrice,
+                basePrice: parsePriceInput(product.basePrice) ?? 0,
                 sku: product.sku || "",
                 isActive: product.isActive,
                 isFeatured: product.isFeatured,
-                discountedPrice: product.discountedPrice,
+                discountedPrice: parsePriceInput(product.discountedPrice) ?? null,
                 seoTitle: product.seoTitle || "",
                 seoDescription: product.seoDescription || "",
                 seoKeywords: product.seoKeywords?.join(", ") || "",

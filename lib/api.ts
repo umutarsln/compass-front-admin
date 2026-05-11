@@ -83,11 +83,8 @@ api.interceptors.response.use(
     // Sadece 500+ server hatalarını console'a yazdır
     // 4xx client hatalarını (401, 403, 404 vb.) sessizce handle et
     if (status && status >= 500) {
-      console.error("Server Error:", {
-        status,
-        message: error.response?.data?.message || error.message,
-        url: originalRequest?.url,
-      })
+      const message = error.response?.data?.message || error.message
+      console.warn(`Server Error (${status}) ${originalRequest?.url || "unknown url"}: ${message}`)
     }
 
     return Promise.reject(error)

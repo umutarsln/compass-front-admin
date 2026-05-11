@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { orderService, OrderStatus, GetOrdersParams, PaymentProvider } from "@/services/order.service"
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Eye, X, Columns, Filter } from "lucide-react"
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, Eye, X, Columns, Filter, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
+import { useToast } from "@/components/ui/use-toast"
 
 const statusColors: Record<OrderStatus, string> = {
   [OrderStatus.PENDING]: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
@@ -104,12 +105,15 @@ const useColumnVisibility = () => {
 
 export function OrderList() {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
   const { visibleColumns, updateVisibleColumns } = useColumnVisibility()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL")
   const [sortBy, setSortBy] = useState<SortField>("createdAt")
   const [sortOrder, setSortOrder] = useState<SortOrder>("DESC")
   const [page, setPage] = useState(1)
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null)
   const limit = 20
 
   // Debounced search - backend'de arama yapılacak
@@ -138,6 +142,32 @@ export function OrderList() {
   const { data: ordersData, isLoading } = useQuery({
     queryKey: ["orders", queryParams],
     queryFn: () => orderService.getAll(queryParams),
+  })
+
+  // Siparişi görünümden kaldırma mutation'ı
+  const deleteOrderMutation = useMutation({
+    mutationFn: (orderId: string) => orderService.delete(orderId),
+    onMutate: (orderId) => {
+      setDeletingOrderId(orderId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] })
+      toast({
+        variant: "success",
+        title: "Sipariş kaldırıldı",
+        description: "Sipariş listeden kaldırıldı. Veritabanında soft delete olarak saklanıyor.",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error.response?.data?.message || "Sipariş kaldırılırken bir hata oluştu.",
+      })
+    },
+    onSettled: () => {
+      setDeletingOrderId(null)
+    },
   })
 
   const totalPages = ordersData ? Math.ceil(ordersData.total / limit) : 1
@@ -181,6 +211,17 @@ export function OrderList() {
 
   const resetToDefault = () => {
     updateVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
+  }
+
+  /**
+   * Kullanıcı onayından sonra siparişi admin listesinden soft delete ile kaldırır.
+   */
+  const handleDeleteOrder = (orderId: string, orderNo: string) => {
+    const confirmed = window.confirm(
+      `${orderNo} numaralı siparişi listeden kaldırmak istediğinize emin misiniz? Bu işlem veriyi fiziksel olarak silmez.`
+    )
+    if (!confirmed) return
+    deleteOrderMutation.mutate(orderId)
   }
 
   // Görünür sütunları filtrele
@@ -459,14 +500,30 @@ export function OrderList() {
                         case 'actions':
                           return (
                             <TableCell key={column.id} className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => router.push(`/panel/orders/${order.id}`)}
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                Detay
-                              </Button>
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => router.push(`/panel/orders/${order.id}`)}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Detay
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  disabled={deletingOrderId === order.id}
+                                  onClick={() => handleDeleteOrder(order.id, order.orderNo)}
+                                >
+                                  {deletingOrderId === order.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                  )}
+                                  Sil
+                                </Button>
+                              </div>
                             </TableCell>
                           )
                         default:

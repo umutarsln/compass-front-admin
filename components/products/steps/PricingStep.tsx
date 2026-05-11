@@ -12,6 +12,22 @@ interface PricingStepProps {
   productType?: ProductType
 }
 
+/**
+ * Fiyat alanına yazılan noktalı veya virgüllü değeri güvenli şekilde number'a çevirir.
+ */
+function parsePriceFieldValue(value: string): number | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  const normalized = trimmed.includes(",")
+    ? trimmed.replace(/\./g, "").replace(",", ".")
+    : trimmed
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 export function PricingStep({
   control,
   register,
@@ -38,14 +54,12 @@ export function PricingStep({
             render={({ field }) => (
               <Input
                 id="basePrice"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 {...field}
                 value={field.value ?? ""}
                 onChange={(e) => {
-                  const value = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0
-                  field.onChange(value)
+                  field.onChange(parsePriceFieldValue(e.target.value) ?? 0)
                 }}
                 placeholder="0.00"
                 className="mt-1"
@@ -73,23 +87,16 @@ export function PricingStep({
               render={({ field }) => (
                 <Input
                   id="discountedPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   {...field}
                   value={field.value ?? ""}
                   onChange={(e) => {
-                    if (e.target.value === "") {
+                    const numValue = parsePriceFieldValue(e.target.value)
+                    if (numValue === undefined) {
                       field.onChange(undefined)
-                    } else {
-                      const numValue = parseFloat(e.target.value)
-                      // Geçerli bir sayı ise (NaN değilse ve >= 0)
-                      if (!isNaN(numValue) && numValue >= 0) {
-                        field.onChange(numValue)
-                      } else {
-                        // Geçersiz değer ise undefined set et
-                        field.onChange(undefined)
-                      }
+                    } else if (numValue >= 0) {
+                      field.onChange(numValue)
                     }
                   }}
                   placeholder="0.00"

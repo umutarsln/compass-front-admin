@@ -161,6 +161,14 @@ export class OrderService {
         )
         return response.data
     }
+
+    /**
+     * Siparişi admin görünümünden soft delete ile kaldırır.
+     */
+    async delete(id: string): Promise<{ message: string }> {
+        const response: AxiosResponse<{ message: string }> = await api.delete(`${this.endpoint}/${id}`)
+        return response.data
+    }
 }
 
 export const orderService = new OrderService()
