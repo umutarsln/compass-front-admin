@@ -298,6 +298,7 @@ export function VariantsStep({ productId }: VariantsStepProps) {
       value: valueValue.trim(),
       colorCode: selectedOption.type === "COLOR" ? valueColorCode : null,
       priceDelta: valuePriceDelta,
+      priceDeltaCurrency: "TRY",
       displayOrder: valueDisplayOrder,
       isActive: valueIsActive,
     }

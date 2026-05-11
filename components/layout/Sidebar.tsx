@@ -13,9 +13,11 @@ import {
   LogOut,
   Shield,
   Image,
+  Images,
   BookOpen,
   CreditCard,
   Ticket,
+  Tags,
 } from "lucide-react"
 
 interface NavItem {
@@ -41,6 +43,11 @@ const navItems: NavItem[] = [
     path: "/panel/products",
   },
   {
+    label: "Kategoriler",
+    icon: Tags,
+    path: "/panel/categories",
+  },
+  {
     label: "Mağaza",
     icon: Store,
     path: "/panel/store",
@@ -64,6 +71,11 @@ const navItems: NavItem[] = [
     label: "Medya",
     icon: Image,
     path: "/panel/media",
+  },
+  {
+    label: "Hero Görselleri",
+    icon: Images,
+    path: "/panel/hero",
   },
   {
     label: "Dokümantasyon",

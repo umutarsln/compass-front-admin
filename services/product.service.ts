@@ -5,6 +5,9 @@ import { Upload } from "./upload.service"
 
 export type ProductType = "SIMPLE" | "VARIANT" | "BUNDLE"
 
+/** Admin ürün fiyat girişi para birimi (backend USD saklar). */
+export type PriceInputCurrency = "TRY" | "USD"
+
 export interface ProductGallery {
   id: string
   productId: string | null
@@ -62,6 +65,10 @@ export interface CreateProductDto {
     isActive?: boolean
     isFeatured?: boolean
     discountedPrice?: number | null
+    /** Gönderilmezse backend TRY kabul eder. */
+    priceCurrency?: PriceInputCurrency
+    /** İndirimli fiyat para birimi; boşsa `priceCurrency` kullanılır. */
+    discountedPriceCurrency?: PriceInputCurrency | null
     seoTitle?: string
     seoDescription?: string
     seoKeywords?: string[]
@@ -112,6 +119,8 @@ export interface CreateVariantValueDto {
   value: string
   colorCode?: string | null
   priceDelta?: number
+  /** Gönderilmezse TRY kabul edilir. */
+  priceDeltaCurrency?: PriceInputCurrency
   isActive?: boolean
   displayOrder?: number
 }

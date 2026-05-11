@@ -1,14 +1,28 @@
 "use client"
 
-import { Controller } from "react-hook-form"
+import { Controller, useWatch, type Control, type FieldErrors, type FieldValues } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ProductType } from "@/services/product.service"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ProductType, type PriceInputCurrency } from "@/services/product.service"
 
-interface PricingStepProps {
-  control: any
-  register: any
-  errors: any
+/** PricingStep ile uyumlu form şekli (`ProductForm` alanları). */
+export type PricingStepFormValues = {
+  basePrice: number
+  discountedPrice?: number | null
+  priceCurrency: PriceInputCurrency
+  discountedPriceCurrency?: PriceInputCurrency
+}
+
+interface PricingStepProps<T extends FieldValues = FieldValues> {
+  control: Control<T>
+  errors: FieldErrors<T>
   productType?: ProductType
 }
 
@@ -28,12 +42,45 @@ function parsePriceFieldValue(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-export function PricingStep({
+/**
+ * Alan doğrulama hatasından güvenli mesaj metni döndürür.
+ */
+function fieldErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return ""
+  }
+  const msg = (error as { message?: unknown }).message
+  return typeof msg === "string" ? msg : ""
+}
+
+/**
+ * Ürün fiyatlandırma adımı: TRY veya USD girişi; backend USD saklar.
+ */
+export function PricingStep<T extends FieldValues>({
   control,
-  register,
   errors,
   productType = "SIMPLE",
-}: PricingStepProps) {
+}: PricingStepProps<T>) {
+  /** useWatch/Controller için daraltılmış kontrol (react-hook-form overload uyumu). */
+  const fvControl = control as unknown as Control<FieldValues>
+
+  const priceCurrency = useWatch({
+    control: fvControl,
+    name: "priceCurrency",
+    defaultValue: "TRY",
+  })
+  const discountedPriceCurrency = useWatch({
+    control: fvControl,
+    name: "discountedPriceCurrency",
+  })
+
+  /** Alan hataları için genişletilmiş tip (pricing alanları). */
+  const fvErrors = errors as FieldErrors<FieldValues>
+
+  const baseSymbol = priceCurrency === "USD" ? "$" : "₺"
+  const discountSymbol =
+    (discountedPriceCurrency ?? priceCurrency) === "USD" ? "$" : "₺"
+
   return (
     <div className="space-y-6">
       <div>
@@ -41,16 +88,63 @@ export function PricingStep({
           Fiyatlandırma
         </h3>
         <p className="text-sm text-muted-foreground">
-          Ürün fiyatlandırma bilgilerini girin.
+          Girdiğiniz tutar seçtiğiniz para birimindedir. Sistem veritabanında USD saklar;
+          mağazada güncel kur ile TL gösterilir.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Temel fiyat para birimi</Label>
+          <Controller
+            name="priceCurrency"
+            control={fvControl}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Para birimi" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TRY">TRY (₺)</SelectItem>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>İndirimli fiyat para birimi</Label>
+          <Controller
+            name="discountedPriceCurrency"
+            control={fvControl}
+            render={({ field }) => (
+              <Select
+                value={field.value ?? "__same__"}
+                onValueChange={(v) =>
+                  field.onChange(v === "__same__" ? undefined : v)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Temel ile aynı" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__same__">
+                    Temel ile aynı ({priceCurrency === "USD" ? "USD" : "TRY"})
+                  </SelectItem>
+                  <SelectItem value="TRY">TRY (₺)</SelectItem>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
         <div>
-          <Label htmlFor="basePrice">Temel Fiyat (₺) *</Label>
+          <Label htmlFor="basePrice">Temel Fiyat ({baseSymbol}) *</Label>
           <Controller
             name="basePrice"
-            control={control}
+            control={fvControl}
             render={({ field }) => (
               <Input
                 id="basePrice"
@@ -68,22 +162,26 @@ export function PricingStep({
           />
           {errors.basePrice && (
             <p className="text-sm text-red-600 mt-1">
-              {errors.basePrice.message}
+              {fieldErrorMessage(fvErrors.basePrice)}
             </p>
           )}
           <p className="text-xs text-muted-foreground mt-1">
-            {productType === "VARIANT" && "Varyant kombinasyonları için varsayılan fiyat"}
-            {productType === "BUNDLE" && "Bundle paketinin temel fiyatı"}
-            {productType === "SIMPLE" && "Ürünün satış fiyatı"}
+            {productType === "VARIANT" &&
+              "Varyant kombinasyonları için varsayılan taban fiyat (USD olarak saklanır)."}
+            {productType === "BUNDLE" &&
+              "Bundle paketinin temel fiyatı (USD olarak saklanır)."}
+            {productType === "SIMPLE" && "Ürünün satış fiyatı (USD olarak saklanır)."}
           </p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="discountedPrice">İndirimli Fiyat (₺)</Label>
+            <Label htmlFor="discountedPrice">
+              İndirimli Fiyat ({discountSymbol})
+            </Label>
             <Controller
               name="discountedPrice"
-              control={control}
+              control={fvControl}
               render={({ field }) => (
                 <Input
                   id="discountedPrice"
@@ -106,11 +204,11 @@ export function PricingStep({
             />
             {errors.discountedPrice && (
               <p className="text-sm text-red-600 mt-1">
-                {errors.discountedPrice.message}
+                {fieldErrorMessage(fvErrors.discountedPrice)}
               </p>
             )}
             <p className="text-xs text-muted-foreground mt-1">
-              İndirimli fiyat direkt olarak bu değer kullanılacaktır.
+              Doluysa bu tutar indirimli satış fiyatı olarak kullanılır (USD saklanır).
             </p>
           </div>
         </div>
@@ -119,8 +217,8 @@ export function PricingStep({
       {productType === "VARIANT" && (
         <div className="p-4 bg-blue-50  border border-blue-200  rounded-lg">
           <p className="text-sm text-blue-800 ">
-            <strong>Varyant Ürünler:</strong> Her varyant kombinasyonu için ayrı fiyat belirleyebilirsiniz.
-            Bu fiyat, varyant kombinasyonları oluşturulurken override edilebilir.
+            <strong>Varyant Ürünler:</strong> Varyant değeri fiyat farkları için de TRY/USD girişi
+            kullanılır; sistem USD saklar.
           </p>
         </div>
       )}

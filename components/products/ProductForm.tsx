@@ -73,6 +73,8 @@ const productSchema = z.object({
         (value) => parsePriceInput(value) ?? null,
         z.number().min(0).nullable().optional()
     ),
+    priceCurrency: z.enum(["TRY", "USD"]).default("TRY"),
+    discountedPriceCurrency: z.enum(["TRY", "USD"]).optional(),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     seoKeywords: z.string().optional(),
@@ -267,6 +269,8 @@ export function ProductForm({ product }: ProductFormProps) {
             isActive: true,
             isFeatured: false,
             discountedPrice: null,
+            priceCurrency: "TRY",
+            discountedPriceCurrency: undefined,
             seoTitle: "",
             seoDescription: "",
             seoKeywords: "",
@@ -366,6 +370,8 @@ export function ProductForm({ product }: ProductFormProps) {
                 isActive: product.isActive,
                 isFeatured: product.isFeatured,
                 discountedPrice: parsePriceInput(product.discountedPrice) ?? null,
+                priceCurrency: "USD",
+                discountedPriceCurrency: undefined,
                 seoTitle: product.seoTitle || "",
                 seoDescription: product.seoDescription || "",
                 seoKeywords: product.seoKeywords?.join(", ") || "",
@@ -529,6 +535,11 @@ export function ProductForm({ product }: ProductFormProps) {
             if (currentStepData.id === "pricing" && productId) {
                 const pricingData: any = {
                     basePrice: formData.basePrice,
+                    priceCurrency: formData.priceCurrency,
+                }
+
+                if (formData.discountedPriceCurrency) {
+                    pricingData.discountedPriceCurrency = formData.discountedPriceCurrency
                 }
 
                 // discountedPrice: Geçerli bir değer varsa her zaman gönder, yoksa null gönder
@@ -592,10 +603,15 @@ export function ProductForm({ product }: ProductFormProps) {
             subtitle: formData.subtitle || undefined,
             description: markdownDescription || formData.description,
             basePrice: formData.basePrice,
+            priceCurrency: formData.priceCurrency,
             sku: formData.sku || undefined,
             isActive: formData.isActive,
             isFeatured: formData.isFeatured,
             personalizationFormId: formData.personalizationFormId || undefined,
+        }
+
+        if (formData.discountedPriceCurrency) {
+            createData.discountedPriceCurrency = formData.discountedPriceCurrency
         }
 
         // discountedPrice: Geçerli bir değer varsa gönder, yoksa null gönder
@@ -644,12 +660,16 @@ export function ProductForm({ product }: ProductFormProps) {
                 // Pricing
                 const pricingData: any = {
                     basePrice: formData.basePrice,
+                    priceCurrency: formData.priceCurrency,
                     discountedPrice: formData.discountedPrice !== null &&
                         formData.discountedPrice !== undefined &&
                         !isNaN(Number(formData.discountedPrice)) &&
                         Number(formData.discountedPrice) >= 0
                         ? Number(formData.discountedPrice)
                         : null,
+                }
+                if (formData.discountedPriceCurrency) {
+                    pricingData.discountedPriceCurrency = formData.discountedPriceCurrency
                 }
                 await updateCategoriesTagsMutation.mutateAsync({
                     id: productId,
@@ -779,10 +799,15 @@ export function ProductForm({ product }: ProductFormProps) {
                     subtitle: data.subtitle || undefined,
                     description: markdownDescription || data.description,
                     basePrice: data.basePrice,
+                    priceCurrency: data.priceCurrency,
                     sku: data.sku || undefined,
                     isActive: data.isActive,
                     isFeatured: data.isFeatured,
                     personalizationFormId: data.personalizationFormId || null,
+                }
+
+                if (data.discountedPriceCurrency) {
+                    updateData.discountedPriceCurrency = data.discountedPriceCurrency
                 }
 
                 // discountedPrice: Geçerli bir değer varsa gönder, yoksa null gönder
@@ -872,7 +897,6 @@ export function ProductForm({ product }: ProductFormProps) {
                 return (
                     <PricingStep
                         control={control}
-                        register={register}
                         errors={errors}
                         productType={productType}
                     />

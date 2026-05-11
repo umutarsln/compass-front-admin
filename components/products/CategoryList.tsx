@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { categoryService, Category, CategoryTree } from "@/services/category.service"
+import type { AxiosError } from "axios"
+import { categoryService, Category } from "@/services/category.service"
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Loader2, X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CategoryForm } from "./CategoryForm"
@@ -94,14 +95,16 @@ export function CategoryList() {
 
   // Pagination
   const totalPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE)
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const resolvedCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1
+  const startIndex = (resolvedCurrentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
   const paginatedCategories = filteredCategories.slice(startIndex, endIndex)
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
+  // Arama değiştiğinde listeyi ilk sayfadan başlatır
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value)
     setCurrentPage(1)
-  }, [searchQuery])
+  }
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -148,8 +151,11 @@ export function CategoryList() {
   // Kategori silme mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => categoryService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["categories", "tree"] }),
+      ])
       toast({
         title: "Başarılı",
         description: "Kategori başarıyla silindi.",
@@ -157,10 +163,11 @@ export function CategoryList() {
       setDeleteDialogOpen(false)
       setCategoryToDelete(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const axiosError = error as AxiosError<{ message?: string }>
       toast({
         title: "Hata",
-        description: error.response?.data?.message || "Kategori silinirken bir hata oluştu.",
+        description: axiosError.response?.data?.message || "Kategori silinirken bir hata oluştu.",
         variant: "destructive",
       })
     },
@@ -170,6 +177,16 @@ export function CategoryList() {
     if (categoryToDelete) {
       deleteMutation.mutate(categoryToDelete.id)
     }
+  }
+
+  // Önceki kategori sayfasına güvenli şekilde geçer
+  const handlePreviousPage = () => {
+    setCurrentPage(Math.max(resolvedCurrentPage - 1, 1))
+  }
+
+  // Sonraki kategori sayfasına güvenli şekilde geçer
+  const handleNextPage = () => {
+    setCurrentPage(Math.min(resolvedCurrentPage + 1, totalPages))
   }
 
   if (isLoading) {
@@ -191,7 +208,7 @@ export function CategoryList() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
                 placeholder="Kategori ara..."
                 className="w-full h-12 pl-10 pr-4 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
@@ -341,10 +358,35 @@ export function CategoryList() {
 
         {/* Footer Info */}
         {filteredCategories.length > 0 && (
-          <div className="border-t border-border px-6 py-3 bg-muted/30">
+          <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-3 bg-muted/30">
             <div className="text-xs text-muted-foreground">
               {startIndex + 1}-{Math.min(endIndex, filteredCategories.length)} / {filteredCategories.length} kategori gösteriliyor
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={resolvedCurrentPage === 1}
+                >
+                  Önceki
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Sayfa {resolvedCurrentPage} / {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={resolvedCurrentPage === totalPages}
+                >
+                  Sonraki
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
